@@ -4,10 +4,11 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle; // For loading assets
 
 import 'package:substation_manager/models/area.dart';
 import 'package:substation_manager/models/substation.dart';
-import 'package:substation_manager/models/bay.dart';
+import 'package:substation_manager/models/bay.dart'; // Ensure this import is correct: should be bay.dart
 import 'package:substation_manager/models/equipment.dart';
 import 'package:substation_manager/models/master_equipment_template.dart';
 import 'package:substation_manager/models/daily_reading.dart';
@@ -18,8 +19,7 @@ import 'package:substation_manager/models/electrical_connection.dart';
 class LocalDatabaseService {
   static Database? _database;
   static const String _databaseName = 'substation_manager.db';
-  // Increment version for any schema changes!
-  static const int _databaseVersion = 3; // UPDATED VERSION
+  static const int _databaseVersion = 3;
 
   static final StreamController<List<Area>> _areasStreamController =
       StreamController<List<Area>>.broadcast();
@@ -90,11 +90,12 @@ class LocalDatabaseService {
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    print('DEBUG: _onCreate called for DB version $version.');
     await db.execute('''
       CREATE TABLE $_areasTable(
         id TEXT PRIMARY KEY,
         name TEXT,
-        description TEXT,
+        areaPurpose TEXT,
         state TEXT,
         cities TEXT
       )
@@ -114,8 +115,6 @@ class LocalDatabaseService {
         yearOfCommissioning INTEGER,
         totalConnectedCapacityMVA REAL,
         notes TEXT
-        -- REMOVED: sldImagePath TEXT,
-        -- REMOVED: sldHotspots TEXT
       )
     ''');
     await db.execute('''
@@ -233,7 +232,7 @@ class LocalDatabaseService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    print('Database upgraded from version $oldVersion to $newVersion.');
+    print('DEBUG: _onUpgrade called from version $oldVersion to $newVersion.');
     if (oldVersion < 2) {
       await db.execute(
         'ALTER TABLE $_equipmentTable ADD COLUMN phaseConfiguration TEXT DEFAULT \'Single Unit\'',
@@ -258,12 +257,11 @@ class LocalDatabaseService {
       ''');
     }
     if (oldVersion < 3) {
-      // Remove sldImagePath and sldHotspots from substations table
-      // This is a complex ALTER, usually involves:
-      // 1. Rename old table
-      // 2. Create new table without the columns
-      // 3. Copy data from old to new, omitting the removed columns
-      // 4. Drop old table
+      print(
+        'DEBUG: Upgrading to v3: Modifying $_substationsTable and $_areasTable.',
+      );
+      // 1. Substations table schema change:
+      // Create temp table, copy, drop old, create new, insert from temp, drop temp
       await db.execute(
         'CREATE TEMPORARY TABLE substations_old AS SELECT id, name, areaId, voltageLevels, latitude, longitude, address, cityId, stateId, type, yearOfCommissioning, totalConnectedCapacityMVA, notes FROM $_substationsTable',
       );
@@ -289,6 +287,25 @@ class LocalDatabaseService {
         'INSERT INTO $_substationsTable (id, name, areaId, voltageLevels, latitude, longitude, address, cityId, stateId, type, yearOfCommissioning, totalConnectedCapacityMVA, notes) SELECT id, name, areaId, voltageLevels, latitude, longitude, address, cityId, stateId, type, yearOfCommissioning, totalConnectedCapacityMVA, notes FROM substations_old',
       );
       await db.execute('DROP TABLE substations_old');
+
+      // 2. Areas table schema change (remove description, add areaPurpose)
+      await db.execute(
+        'CREATE TEMPORARY TABLE areas_old AS SELECT id, name, state, cities FROM $_areasTable',
+      );
+      await db.execute('DROP TABLE $_areasTable');
+      await db.execute('''
+        CREATE TABLE $_areasTable(
+          id TEXT PRIMARY KEY,
+          name TEXT,
+          areaPurpose TEXT DEFAULT "Transmission",
+          state TEXT,
+          cities TEXT
+        )
+      ''');
+      await db.execute(
+        'INSERT INTO $_areasTable (id, name, areaPurpose, state, cities) SELECT id, name, "Transmission", state, cities FROM areas_old',
+      );
+      await db.execute('DROP TABLE areas_old');
     }
   }
 
@@ -358,7 +375,6 @@ class LocalDatabaseService {
   Future<void> saveSubstation(Substation substation) async {
     final map = substation.toMap();
     map['voltageLevels'] = _toJsonString(map['voltageLevels']);
-    // Removed: map['sldHotspots'] = _toJsonString(map['sldHotspots']);
     await _upsert(_substationsTable, map);
     _updateSubstationStream();
   }
@@ -373,7 +389,6 @@ class LocalDatabaseService {
     return List.generate(maps.length, (i) {
       final map = maps[i];
       map['voltageLevels'] = _fromJsonString(map['voltageLevels'] as String?);
-      // Removed: map['sldHotspots'] = _fromJsonString(map['sldHotspots'] as String?);
       return Substation.fromMap(map);
     });
   }
@@ -591,13 +606,15 @@ class LocalDatabaseService {
 
   Future<void> prePopulateStates(List<StateModel> states) async {
     final db = await database;
-    for (var state in states) {
-      await db.insert(
-        _statesTable,
-        state.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    }
+    await db.transaction((txn) async {
+      for (var state in states) {
+        await txn.insert(
+          _statesTable,
+          state.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
     print('States pre-populated.');
     _updateStateStream();
   }
@@ -626,13 +643,15 @@ class LocalDatabaseService {
 
   Future<void> prePopulateCities(List<CityModel> cities) async {
     final db = await database;
-    for (var city in cities) {
-      await db.insert(
-        _citiesTable,
-        city.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    }
+    await db.transaction((txn) async {
+      for (var city in cities) {
+        await txn.insert(
+          _citiesTable,
+          city.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
     print('Cities pre-populated.');
     _updateCityStream();
   }
@@ -716,5 +735,37 @@ class LocalDatabaseService {
     _statesStreamController.close();
     _citiesStreamController.close();
     _connectionsStreamController.close();
+  }
+
+  // --- SQL Parsing Methods ---
+  static Future<List<StateModel>> parseStatesSql(String sqlContent) async {
+    final List<StateModel> states = [];
+    final RegExp regex = RegExp(
+      r"INSERT INTO core_state\(id, name\)\s+VALUES\s+\(\s*(\d+),\s*'([^']+)'\s*\);",
+    );
+    final Iterable<RegExpMatch> matches = regex.allMatches(sqlContent);
+
+    for (final match in matches) {
+      final id = double.parse(match.group(1)!);
+      final name = match.group(2)!;
+      states.add(StateModel(id: id, name: name));
+    }
+    return states;
+  }
+
+  static Future<List<CityModel>> parseCitiesSql(String sqlContent) async {
+    final List<CityModel> cities = [];
+    final RegExp regex = RegExp(
+      r"INSERT INTO core_city\(id, name, state_id\)\s+VALUES\s+\(\s*(\d+),\s*'([^']+)',\s*(\d+)\s*\);",
+    );
+    final Iterable<RegExpMatch> matches = regex.allMatches(sqlContent);
+
+    for (final match in matches) {
+      final id = double.parse(match.group(1)!);
+      final name = match.group(2)!;
+      final stateId = double.parse(match.group(3)!);
+      cities.add(CityModel(id: id, name: name, stateId: stateId));
+    }
+    return cities;
   }
 }

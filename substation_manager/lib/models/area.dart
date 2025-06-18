@@ -47,14 +47,14 @@ class CityModel {
 class Area {
   final String id;
   final String name;
-  final String? description;
+  final String areaPurpose; // NEW: Field for area purpose
   final StateModel state;
   final List<CityModel> cities;
 
   Area({
     required this.id,
     required this.name,
-    this.description,
+    required this.areaPurpose, // Initialize new field
     required this.state,
     this.cities = const [],
   });
@@ -68,7 +68,7 @@ class Area {
     return Area(
       id: snapshot.id,
       name: data?['name'] as String? ?? 'Unknown Area',
-      description: data?['description'] as String?,
+      areaPurpose: data?['areaPurpose'] as String? ?? '', // Read new field
       state: StateModel.fromMap(
         Map<String, dynamic>.from(data?['state'] ?? {}),
       ),
@@ -84,7 +84,7 @@ class Area {
   Map<String, dynamic> toFirestore() {
     return {
       'name': name,
-      'description': description,
+      'areaPurpose': areaPurpose, // Include new field
       'state': state.toMap(),
       'cities': cities.map((city) => city.toMap()).toList(),
       'createdAt': FieldValue.serverTimestamp(),
@@ -96,7 +96,7 @@ class Area {
     return Area(
       id: map['id'] as String,
       name: map['name'] as String,
-      description: map['description'] as String?,
+      areaPurpose: map['areaPurpose'] as String? ?? '', // Read new field
       state: StateModel.fromMap(
         jsonDecode(map['state'] as String),
       ), // Deserialize nested map from JSON string
@@ -116,7 +116,7 @@ class Area {
     return {
       'id': id,
       'name': name,
-      'description': description,
+      'areaPurpose': areaPurpose, // Include new field
       'state': jsonEncode(
         state.toMap(),
       ), // Serialize nested object to JSON string
@@ -130,14 +130,14 @@ class Area {
   Area copyWith({
     String? id,
     String? name,
-    String? description,
+    String? areaPurpose, // Copy new field
     StateModel? state,
     List<CityModel>? cities,
   }) {
     return Area(
       id: id ?? this.id,
       name: name ?? this.name,
-      description: description ?? this.description,
+      areaPurpose: areaPurpose ?? this.areaPurpose, // Copy new field
       state: state ?? this.state,
       cities: cities ?? this.cities,
     );

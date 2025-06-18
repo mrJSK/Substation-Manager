@@ -62,6 +62,9 @@ flutter:
   uses-material-design: true
   assets:
     - assets/google_logo.webp
+    - assets/state_sql_command.txt # NEW: Add your state SQL file as an asset
+    - assets/city_sql_command.txt # NEW: Add your city SQL file as an asset
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:

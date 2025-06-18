@@ -1,12 +1,45 @@
 // lib/main.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'
+    show rootBundle; // Required for rootBundle to load assets
 import 'package:substation_manager/screens/splash_screen.dart';
 import 'package:substation_manager/services/local_database_service.dart';
+import 'package:substation_manager/models/area.dart'; // Import StateModel and CityModel
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await LocalDatabaseService().initializeDatabase();
+
+  final localDb = LocalDatabaseService();
+  await localDb.initializeDatabase();
+
+  // --- Pre-populate States and Cities from SQL asset files ---
+  // In lib/main.dart, inside main() function
+  try {
+    final String statesSqlContent = await rootBundle.loadString(
+      'state_sql_command.txt',
+    );
+    final String citiesSqlContent = await rootBundle.loadString(
+      'city_sql_command.txt',
+    );
+
+    // Parse SQL content into Dart objects using LocalDatabaseService's methods
+    final List<StateModel> initialStatesData =
+        await LocalDatabaseService.parseStatesSql(statesSqlContent);
+    final List<CityModel> initialCitiesData =
+        await LocalDatabaseService.parseCitiesSql(citiesSqlContent);
+
+    // Pre-populate the local database
+    await localDb.prePopulateStates(initialStatesData);
+    await localDb.prePopulateCities(initialCitiesData);
+
+    print('States and Cities pre-populated from SQL asset files.');
+  } catch (e) {
+    print('Error pre-populating states and cities from assets: $e');
+    // Handle error, e.g., show a user-facing message or retry logic
+  }
+  // --- End Pre-population ---
+
   runApp(const MyApp());
 }
 

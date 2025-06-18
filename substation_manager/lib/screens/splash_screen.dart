@@ -3,10 +3,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:substation_manager/screens/home_screen.dart';
 import 'package:substation_manager/screens/sign_in_screen.dart';
 import 'package:substation_manager/services/local_database_service.dart';
+import 'package:substation_manager/models/area.dart'; // Import StateModel and CityModel
 import 'package:substation_manager/firebase_options.dart';
+import 'package:substation_manager/utils/snackbar_utils.dart'; // For showing SnackBar
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,12 +25,15 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<Offset> _slideAnimation;
   late Animation<double> _progressAnimation;
 
+  final LocalDatabaseService _localDatabaseService =
+      LocalDatabaseService(); // Instance for pre-population
+
   @override
   void initState() {
     super.initState();
 
     _controller = AnimationController(
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 4), // Increased duration for DB ops
       vsync: this,
     );
 
@@ -70,12 +76,31 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _initializeAppAndNavigate() async {
     try {
+      // Initialize Firebase
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
 
-      await LocalDatabaseService().initializeDatabase();
+      // --- Pre-populate States and Cities from SQL asset files ---
+      print('DEBUG: SplashScreen: Starting DB pre-population.');
+      final String statesSqlContent = await rootBundle.loadString(
+        'assets/state_sql_command.txt',
+      );
+      final String citiesSqlContent = await rootBundle.loadString(
+        'assets/city_sql_command.txt',
+      );
 
+      final List<StateModel> initialStatesData =
+          await LocalDatabaseService.parseStatesSql(statesSqlContent);
+      final List<CityModel> initialCitiesData =
+          await LocalDatabaseService.parseCitiesSql(citiesSqlContent);
+
+      await _localDatabaseService.prePopulateStates(initialStatesData);
+      await _localDatabaseService.prePopulateCities(initialCitiesData);
+      print('DEBUG: SplashScreen: DB pre-population complete.');
+      // --- End Pre-population ---
+
+      // Check authentication state
       User? user = FirebaseAuth.instance.currentUser;
 
       if (mounted) {
@@ -90,10 +115,12 @@ class _SplashScreenState extends State<SplashScreen>
         }
       }
     } catch (e) {
-      print("Failed to initialize Firebase or database: $e");
+      print("ERROR: SplashScreen: Initialization failed: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('App initialization failed: $e')),
+        SnackBarUtils.showSnackBar(
+          context,
+          'App initialization failed: $e',
+          isError: true,
         );
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const SignInScreen()),
