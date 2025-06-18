@@ -235,7 +235,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             return AlertDialog(
               title: const Text('Confirm Rejection and Deletion'),
               content: Text(
-                'Are you sure you want to REJECT and DELETE this user\'s profile (${_allUsers.firstWhere((u) => u.id == userId).email})? This action is irreversible.',
+                // Use user.uid instead of user.id
+                'Are you sure you want to REJECT and DELETE this user\'s profile (${_allUsers.firstWhere((u) => u.uid == userId).email})? This action is irreversible.',
               ),
               actions: <Widget>[
                 TextButton(
@@ -288,19 +289,24 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
   Future<void> _showManageUserModal(UserProfile user) async {
     // We get a fresh copy of the user to ensure modal reflects latest data
+    // Use user.uid for comparison and fetching
     UserProfile? latestUser = await _authService.getCurrentUserProfile();
-    if (latestUser?.id != user.id) {
+    if (latestUser?.uid != user.uid) {
+      // Use uid for comparison
       final allUsers = await _authService.getAllUserProfiles();
-      latestUser = allUsers.firstWhereOrNull((u) => u.id == user.id);
+      latestUser = allUsers.firstWhereOrNull(
+        (u) => u.uid == user.uid,
+      ); // Use uid for lookup
     }
 
     if (latestUser == null) {
-      if (mounted)
+      if (mounted) {
         SnackBarUtils.showSnackBar(
           context,
           'User not found or deleted.',
           isError: true,
         );
+      }
       return;
     }
 
@@ -354,14 +360,10 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     ),
                     items: <DropdownMenuItem<String?>>[
                       const DropdownMenuItem(value: null, child: Text('None')),
-                      ...['Admin', 'SDO', 'JE', 'SSO']
-                          .map(
-                            (role) => DropdownMenuItem(
-                              value: role,
-                              child: Text(role),
-                            ),
-                          )
-                          .toList(),
+                      ...['Admin', 'SDO', 'JE', 'SSO'].map(
+                        (role) =>
+                            DropdownMenuItem(value: role, child: Text(role)),
+                      ),
                     ],
                     onChanged: (value) {
                       setModalState(() {
@@ -406,9 +408,10 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                           try {
                             // Update mobile number if it changed
                             if (currentMobile != user.mobile) {
+                              // Here 'user' refers to the original UserProfile passed to modal
                               await FirebaseFirestore.instance
                                   .collection('userProfiles')
-                                  .doc(latestUser!.id)
+                                  .doc(latestUser!.uid) // Use uid here
                                   .update({'mobile': currentMobile});
                               await _authService.getCurrentUserProfile(
                                 forceFetch: true,
@@ -416,14 +419,16 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             }
 
                             if (selectedRole != user.role) {
+                              // Here 'user' refers to the original UserProfile passed to modal
                               await _updateUserRole(
-                                latestUser!.id,
+                                latestUser!.uid, // Use uid here
                                 selectedRole,
                               );
                             }
                             if (selectedStatus != user.status) {
+                              // Here 'user' refers to the original UserProfile passed to modal
                               await _updateUserStatus(
-                                latestUser!.id,
+                                latestUser!.uid, // Use uid here
                                 selectedStatus,
                               );
                             }
@@ -712,7 +717,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                         if (confirm == true) {
                                           try {
                                             await _authService
-                                                .deleteUserProfile(user.id);
+                                                .deleteUserProfile(
+                                                  user.uid,
+                                                ); // Use uid here
                                             if (mounted) {
                                               SnackBarUtils.showSnackBar(
                                                 context,

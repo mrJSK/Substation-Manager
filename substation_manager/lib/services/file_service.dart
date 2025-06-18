@@ -174,22 +174,16 @@ class FileService {
         font = img.arial14;
       }
 
-      if (font == null) {
-        print(
-          "Warning: No suitable font found for overlay. Text might not render.",
+      for (String line in textLines) {
+        img.drawString(
+          outputImage,
+          line,
+          font: font,
+          x: padding,
+          y: currentY,
+          color: img.ColorRgb8(255, 255, 255),
         );
-      } else {
-        for (String line in textLines) {
-          img.drawString(
-            outputImage,
-            line,
-            font: font,
-            x: padding,
-            y: currentY,
-            color: img.ColorRgb8(255, 255, 255),
-          );
-          currentY += textHeightPerLine.toInt();
-        }
+        currentY += textHeightPerLine.toInt();
       }
 
       final Directory tempDir = await getTemporaryDirectory();

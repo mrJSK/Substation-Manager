@@ -35,6 +35,7 @@ class _AssignSubstationsToUserScreenState
   @override
   void initState() {
     super.initState();
+    // Use userProfile.assignedSubstationIds directly, which is now List<String>
     _selectedSubstationIds = Set.from(widget.userProfile.assignedSubstationIds);
     _searchController.addListener(_onSearchChanged);
     _loadSubstations();
@@ -113,20 +114,23 @@ class _AssignSubstationsToUserScreenState
   }
 
   Future<void> _saveAssignments() async {
+    // Use widget.userProfile.assignedSubstationIds directly, which is now List<String>
     List<String> substationsToAdd = _selectedSubstationIds
         .difference(Set.from(widget.userProfile.assignedSubstationIds))
         .toList();
-    List<String> substationsToRemove = Set.from(
-      widget.userProfile.assignedSubstationIds,
-    ).difference(_selectedSubstationIds).toList().cast<String>();
+    List<String> substationsToRemove =
+        Set.from(widget.userProfile.assignedSubstationIds)
+            .difference(_selectedSubstationIds)
+            .toList(); // No need for .cast<String>()
 
     if (substationsToAdd.isEmpty && substationsToRemove.isEmpty) {
-      if (mounted)
+      if (mounted) {
         SnackBarUtils.showSnackBar(
           context,
           'No changes to save.',
           isError: false,
         );
+      }
       Navigator.of(context).pop();
       return;
     }
@@ -134,13 +138,13 @@ class _AssignSubstationsToUserScreenState
     try {
       if (substationsToAdd.isNotEmpty) {
         await _authService.assignSubstationsToUser(
-          widget.userProfile.id,
+          widget.userProfile.uid, // Use uid
           substationsToAdd,
         );
       }
       if (substationsToRemove.isNotEmpty) {
         await _authService.unassignSubstationsFromUser(
-          widget.userProfile.id,
+          widget.userProfile.uid, // Use uid
           substationsToRemove,
         );
       }

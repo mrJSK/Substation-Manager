@@ -1,6 +1,7 @@
 // lib/services/core_firestore_service.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:substation_manager/models/user_profile.dart'; // Import UserProfile model
 import 'package:substation_manager/models/area.dart';
 import 'package:substation_manager/models/substation.dart';
 import 'package:substation_manager/models/bay.dart';
@@ -8,6 +9,16 @@ import 'package:substation_manager/models/master_equipment_template.dart';
 
 class CoreFirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  // --- UserProfile Collection Reference ---
+  CollectionReference<UserProfile> get _userProfilesRef {
+    return _db
+        .collection('user_profiles')
+        .withConverter<UserProfile>(
+          fromFirestore: (snapshot, _) => UserProfile.fromFirestore(snapshot),
+          toFirestore: (profile, _) => profile.toFirestore(),
+        );
+  }
 
   // --- Area Collection Reference ---
   CollectionReference<Area> get _areasRef {
@@ -49,6 +60,65 @@ class CoreFirestoreService {
               MasterEquipmentTemplate.fromFirestore(snapshot),
           toFirestore: (template, _) => template.toFirestore(),
         );
+  }
+
+  // --- UserProfile Methods ---
+  Stream<UserProfile> getUserProfileStream(String uid) {
+    return _userProfilesRef.doc(uid).snapshots().map((snapshot) {
+      if (!snapshot.exists) {
+        throw Exception('User profile not found for UID: $uid');
+      }
+      return snapshot.data()!;
+    });
+  }
+
+  Future<void> createUserProfile(UserProfile profile) async {
+    try {
+      await _userProfilesRef.doc(profile.uid).set(profile);
+    } catch (e) {
+      print('Error creating user profile ${profile.uid}: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateUserProfile(UserProfile profile) async {
+    try {
+      await _userProfilesRef
+          .doc(profile.uid)
+          .set(profile, SetOptions(merge: true));
+    } catch (e) {
+      print('Error updating user profile ${profile.uid}: $e');
+      rethrow;
+    }
+  }
+
+  Future<UserProfile?> getUserProfileOnce(String uid) async {
+    try {
+      final docSnapshot = await _userProfilesRef.doc(uid).get();
+      return docSnapshot.data();
+    } catch (e) {
+      print('Error fetching user profile $uid: $e');
+      return null;
+    }
+  }
+
+  Stream<List<UserProfile>> getUserProfilesByRoleStream(String role) {
+    return _userProfilesRef
+        .where('role', isEqualTo: role)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
+  }
+
+  Future<List<UserProfile>> getUserProfilesByRoleOnce(String role) async {
+    try {
+      final querySnapshot = await _userProfilesRef
+          .where('role', isEqualTo: role)
+          .get();
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      print('Error fetching user profiles by role: $e');
+      rethrow;
+    }
   }
 
   // --- Area Methods ---
@@ -95,6 +165,23 @@ class CoreFirestoreService {
     }
   }
 
+  // Get areas assigned to an SDO
+  Future<List<Area>> getAssignedAreasForSdo(String sdoId) async {
+    try {
+      final userProfile = await getUserProfileOnce(sdoId);
+      if (userProfile != null && userProfile.assignedAreaIds.isNotEmpty) {
+        final querySnapshot = await _areasRef
+            .where(FieldPath.documentId, whereIn: userProfile.assignedAreaIds)
+            .get();
+        return querySnapshot.docs.map((doc) => doc.data()).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching assigned areas for SDO $sdoId: $e');
+      rethrow;
+    }
+  }
+
   // --- Substation Methods ---
   Stream<List<Substation>> getSubstationsStream() {
     return _substationsRef.snapshots().map(
@@ -137,6 +224,45 @@ class CoreFirestoreService {
       await _substationsRef.doc(substationId).delete();
     } catch (e) {
       print('Error deleting substation $substationId: $e');
+      rethrow;
+    }
+  }
+
+  // Get substations by a list of area IDs
+  Future<List<Substation>> getSubstationsByAreaIds(List<String> areaIds) async {
+    if (areaIds.isEmpty) {
+      return [];
+    }
+    try {
+      // Firestore 'whereIn' clause is limited to 10 items.
+      // If areaIds can exceed 10, this needs to be batched.
+      // For now, assuming it's within limits or can be handled in batches if needed.
+      final querySnapshot = await _substationsRef
+          .where('areaId', whereIn: areaIds)
+          .get();
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      print('Error fetching substations by area IDs: $e');
+      rethrow;
+    }
+  }
+
+  // Get substations assigned to a JE
+  Future<List<Substation>> getAssignedSubstationsForJe(String jeId) async {
+    try {
+      final userProfile = await getUserProfileOnce(jeId);
+      if (userProfile != null && userProfile.assignedSubstationIds.isNotEmpty) {
+        final querySnapshot = await _substationsRef
+            .where(
+              FieldPath.documentId,
+              whereIn: userProfile.assignedSubstationIds,
+            )
+            .get();
+        return querySnapshot.docs.map((doc) => doc.data()).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching assigned substations for JE $jeId: $e');
       rethrow;
     }
   }

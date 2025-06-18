@@ -33,6 +33,7 @@ class _AssignAreasToSdoScreenState extends State<AssignAreasToSdoScreen> {
   @override
   void initState() {
     super.initState();
+    // Use sdo.assignedAreaIds directly, which is now List<String>
     _selectedAreaIds = Set.from(widget.sdo.assignedAreaIds);
     _searchController.addListener(_onSearchChanged);
     _loadAreas();
@@ -109,30 +110,38 @@ class _AssignAreasToSdoScreenState extends State<AssignAreasToSdoScreen> {
   }
 
   Future<void> _saveAssignments() async {
+    // Use widget.sdo.assignedAreaIds, which is now of type List<String>
     List<String> areasToAdd = _selectedAreaIds
         .difference(Set.from(widget.sdo.assignedAreaIds))
         .toList();
     List<String> areasToRemove = Set.from(
       widget.sdo.assignedAreaIds,
-    ).difference(_selectedAreaIds).toList().cast<String>();
+    ).difference(_selectedAreaIds).toList(); // No need for .cast<String>()
 
     if (areasToAdd.isEmpty && areasToRemove.isEmpty) {
-      if (mounted)
+      if (mounted) {
         SnackBarUtils.showSnackBar(
           context,
           'No changes to save.',
           isError: false,
         );
+      }
       Navigator.of(context).pop();
       return;
     }
 
     try {
       if (areasToAdd.isNotEmpty) {
-        await _authService.assignAreasToSdo(widget.sdo.id, areasToAdd);
+        await _authService.assignAreasToSdo(
+          widget.sdo.uid,
+          areasToAdd,
+        ); // Use uid
       }
       if (areasToRemove.isNotEmpty) {
-        await _authService.unassignAreasFromSdo(widget.sdo.id, areasToRemove);
+        await _authService.unassignAreasFromSdo(
+          widget.sdo.uid,
+          areasToRemove,
+        ); // Use uid
       }
       if (mounted) {
         SnackBarUtils.showSnackBar(
@@ -230,7 +239,7 @@ class _AssignAreasToSdoScreenState extends State<AssignAreasToSdoScreen> {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           subtitle: Text(
-                            '${area.state.name} ${cityNames.isNotEmpty ? '(${cityNames})' : ''}',
+                            '${area.state.name} ${cityNames.isNotEmpty ? '($cityNames)' : ''}',
                           ),
                           value: isSelected,
                           onChanged: (bool? newValue) {

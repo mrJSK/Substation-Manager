@@ -5,7 +5,7 @@ import 'package:substation_manager/models/master_equipment_template.dart';
 import 'package:substation_manager/services/core_firestore_service.dart';
 import 'package:substation_manager/utils/snackbar_utils.dart';
 import 'package:uuid/uuid.dart'; // For generating IDs
-// Removed: import 'package:substation_manager/data/master_equipment_definitions.dart'; // No longer needed for pre-defined fields
+import 'package:substation_manager/data/master_equipment_definitions.dart'; // Import for masterEquipmentDefinitions
 import 'package:collection/collection.dart'; // For firstWhereOrNull
 
 // Define an enum for different views within the screen
@@ -127,9 +127,7 @@ class _MasterEquipmentManagementScreenState
       _viewMode = MasterEquipmentViewMode.form; // Switch to form view
       _templateToEdit = template;
       _equipmentTypeController.text = template.equipmentType;
-      _customFields = List.from(
-        template.customFields,
-      ); // Load existing custom fields
+      _customFields = List.from(template.customFields);
       _associatedRelays = List.from(template.associatedRelays);
     });
   }
@@ -154,7 +152,7 @@ class _MasterEquipmentManagementScreenState
     setState(() {
       _templateToEdit = null;
       _equipmentTypeController.clear();
-      _customFields = []; // Ensure custom fields are empty for new template
+      _customFields = [];
       _associatedRelays = [];
       _formKey.currentState?.reset();
     });
@@ -491,9 +489,10 @@ class _MasterEquipmentManagementScreenState
                       onChanged: (String? newValue) {
                         setState(() {
                           _equipmentTypeController.text = newValue ?? '';
-                          // Modified: Set customFields to empty when a new type is selected.
-                          // Pre-defined fields are no longer automatically loaded here.
-                          _customFields = [];
+                          // This is where custom fields are loaded based on selection
+                          _customFields = List.from(
+                            masterEquipmentDefinitions[newValue] ?? [],
+                          );
                         });
                       },
                       validator: (value) => value!.isEmpty

@@ -158,8 +158,8 @@ class Task {
       completionDate: completionDate ?? this.completionDate,
       reviewNotes: reviewNotes ?? this.reviewNotes,
       associatedReadingIds: associatedReadingIds ?? this.associatedReadingIds,
-      completedCount: completedCount ?? this._completedCount,
-      expectedCount: expectedCount ?? this._expectedCount,
+      completedCount: completedCount ?? _completedCount,
+      expectedCount: expectedCount ?? _expectedCount,
     );
   }
 

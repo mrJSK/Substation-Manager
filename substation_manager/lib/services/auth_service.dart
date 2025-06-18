@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:substation_manager/models/user_profile.dart';
+import 'package:substation_manager/models/user_profile.dart'; // Ensure UserProfile is correctly updated
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
@@ -12,6 +12,8 @@ class AuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static const String _kUserProfileCacheKey = 'user_profile_cache';
+  // Consistent Firestore collection name for user profiles
+  static const String _userProfilesCollection = 'user_profiles';
 
   final StreamController<UserProfile?> _userProfileStreamController =
       StreamController<UserProfile?>.broadcast();
@@ -38,6 +40,7 @@ class AuthService {
 
   Future<void> _saveUserProfileToCache(UserProfile profile) async {
     final prefs = await SharedPreferences.getInstance();
+    // Use profile.toMap() which should include the 'id' (uid) field now
     await prefs.setString(_kUserProfileCacheKey, jsonEncode(profile.toMap()));
     print('User profile saved to cache: ${profile.email}');
   }
@@ -49,6 +52,7 @@ class AuthService {
       if (profileString != null && profileString.isNotEmpty) {
         final Map<String, dynamic> map = jsonDecode(profileString);
         print('User profile loaded from cache: ${map['email']}');
+        // UserProfile.fromMap expects 'id' field in the map
         return UserProfile.fromMap(map);
       }
     } catch (e) {
@@ -73,8 +77,9 @@ class AuthService {
 
     if (!forceFetch) {
       UserProfile? cachedProfile = await _loadUserProfileFromCache();
+      // Use cachedProfile.uid for comparison
       if (cachedProfile != null &&
-          cachedProfile.id == user.uid &&
+          cachedProfile.uid == user.uid && // Changed from .id to .uid
           cachedProfile.status == 'approved') {
         print('Returning cached user profile for ${user.email}.');
         return cachedProfile;
@@ -83,8 +88,8 @@ class AuthService {
 
     try {
       final doc = await _firestore
-          .collection('userProfiles')
-          .doc(user.uid)
+          .collection(_userProfilesCollection) // Use consistent collection name
+          .doc(user.uid) // Use user.uid
           .get();
       if (doc.exists) {
         final UserProfile fetchedProfile = UserProfile.fromMap(doc.data()!);
@@ -96,7 +101,9 @@ class AuthService {
       print('Error fetching user profile from Firestore: $e');
       if (!forceFetch) {
         UserProfile? cachedProfile = await _loadUserProfileFromCache();
-        if (cachedProfile != null && cachedProfile.id == user.uid) {
+        // Use cachedProfile.uid for comparison
+        if (cachedProfile != null && cachedProfile.uid == user.uid) {
+          // Changed from .id to .uid
           print(
             'Firestore fetch failed, returning potentially stale cached profile.',
           );
@@ -113,12 +120,14 @@ class AuthService {
     String? displayName,
     String? mobile,
   ) async {
-    final docRef = _firestore.collection('userProfiles').doc(uid);
+    final docRef = _firestore
+        .collection(_userProfilesCollection)
+        .doc(uid); // Use consistent collection name
     final doc = await docRef.get();
 
     if (!doc.exists) {
       final newUserProfile = UserProfile(
-        id: uid,
+        uid: uid, // Use uid
         email: email,
         displayName: displayName,
         mobile: mobile,
@@ -173,9 +182,13 @@ class AuthService {
 
   Future<List<UserProfile>> getAllUserProfiles() async {
     try {
-      final querySnapshot = await _firestore.collection('userProfiles').get();
+      final querySnapshot = await _firestore
+          .collection(_userProfilesCollection)
+          .get(); // Use consistent collection name
       return querySnapshot.docs
-          .map((doc) => UserProfile.fromMap(doc.data()))
+          .map(
+            (doc) => UserProfile.fromMap(doc.data()),
+          ) // Ensure data() is not null
           .toList();
     } catch (e) {
       print('Error fetching all user profiles: $e');
@@ -185,12 +198,14 @@ class AuthService {
 
   Stream<List<UserProfile>> streamAllUserProfiles() {
     return _firestore
-        .collection('userProfiles')
+        .collection(_userProfilesCollection) // Use consistent collection name
         .orderBy('email', descending: false)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-              .map((doc) => UserProfile.fromMap(doc.data()))
+              .map(
+                (doc) => UserProfile.fromMap(doc.data()),
+              ) // Ensure data() is not null
               .toList(),
         )
         .handleError((e) {
@@ -198,100 +213,114 @@ class AuthService {
         });
   }
 
-  Future<void> updateUserRole(String userId, String? newRole) async {
+  Future<void> updateUserRole(String uid, String? newRole) async {
+    // Changed userId to uid
     try {
-      await _firestore.collection('userProfiles').doc(userId).update({
+      await _firestore.collection(_userProfilesCollection).doc(uid).update({
+        // Use consistent collection name and uid
         'role': newRole,
       });
       await getCurrentUserProfile(forceFetch: true);
-      print('User $userId role updated to ${newRole ?? 'None'}.');
+      print('User $uid role updated to ${newRole ?? 'None'}.');
     } catch (e) {
-      print('Error updating user $userId role: $e');
+      print('Error updating user $uid role: $e');
       rethrow;
     }
   }
 
-  Future<void> updateUserStatus(String userId, String newStatus) async {
+  Future<void> updateUserStatus(String uid, String newStatus) async {
+    // Changed userId to uid
     try {
-      await _firestore.collection('userProfiles').doc(userId).update({
+      await _firestore.collection(_userProfilesCollection).doc(uid).update({
+        // Use consistent collection name and uid
         'status': newStatus,
       });
       await getCurrentUserProfile(forceFetch: true);
-      print('User $userId status updated to $newStatus.');
+      print('User $uid status updated to $newStatus.');
     } catch (e) {
-      print('Error updating user $userId status: $e');
+      print('Error updating user $uid status: $e');
       rethrow;
     }
   }
 
   Future<void> assignSubstationsToUser(
-    String userId,
+    String uid, // Changed userId to uid
     List<String> substationIds,
   ) async {
     try {
-      await _firestore.collection('userProfiles').doc(userId).update({
+      await _firestore.collection(_userProfilesCollection).doc(uid).update({
+        // Use consistent collection name and uid
         'assignedSubstationIds': FieldValue.arrayUnion(substationIds),
       });
       await getCurrentUserProfile(forceFetch: true);
-      print('Assigned substations to user $userId.');
+      print('Assigned substations to user $uid.');
     } catch (e) {
-      print('Error assigning substations to user $userId: $e');
+      print('Error assigning substations to user $uid: $e');
       rethrow;
     }
   }
 
   Future<void> unassignSubstationsFromUser(
-    String userId,
+    String uid, // Changed userId to uid
     List<String> substationIds,
   ) async {
     try {
-      await _firestore.collection('userProfiles').doc(userId).update({
+      await _firestore.collection(_userProfilesCollection).doc(uid).update({
+        // Use consistent collection name and uid
         'assignedSubstationIds': FieldValue.arrayRemove(substationIds),
       });
       await getCurrentUserProfile(forceFetch: true);
-      print('Unassigned substations from user $userId.');
+      print('Unassigned substations from user $uid.');
     } catch (e) {
-      print('Error unassigning substations from user $userId: $e');
+      print('Error unassigning substations from user $uid: $e');
       rethrow;
     }
   }
 
-  Future<void> assignAreasToSdo(String sdoId, List<String> areaIds) async {
+  Future<void> assignAreasToSdo(String sdoUid, List<String> areaIds) async {
+    // Changed sdoId to sdoUid
     try {
-      await _firestore.collection('userProfiles').doc(sdoId).update({
+      await _firestore.collection(_userProfilesCollection).doc(sdoUid).update({
+        // Use consistent collection name and sdoUid
         'assignedAreaIds': FieldValue.arrayUnion(areaIds),
       });
       await getCurrentUserProfile(forceFetch: true);
-      print('Assigned areas to SDO $sdoId.');
+      print('Assigned areas to SDO $sdoUid.');
     } catch (e) {
-      print('Error assigning areas to SDO $sdoId: $e');
+      print('Error assigning areas to SDO $sdoUid: $e');
       rethrow;
     }
   }
 
-  Future<void> unassignAreasFromSdo(String sdoId, List<String> areaIds) async {
+  Future<void> unassignAreasFromSdo(String sdoUid, List<String> areaIds) async {
+    // Changed sdoId to sdoUid
     try {
-      await _firestore.collection('userProfiles').doc(sdoId).update({
+      await _firestore.collection(_userProfilesCollection).doc(sdoUid).update({
+        // Use consistent collection name and sdoUid
         'assignedAreaIds': FieldValue.arrayRemove(areaIds),
       });
       await getCurrentUserProfile(forceFetch: true);
-      print('Unassigned areas from SDO $sdoId.');
+      print('Unassigned areas from SDO $sdoUid.');
     } catch (e) {
-      print('Error unassigning areas from SDO $sdoId: $e');
+      print('Error unassigning areas from SDO $sdoUid: $e');
       rethrow;
     }
   }
 
-  Future<void> deleteUserProfile(String userId) async {
+  Future<void> deleteUserProfile(String uid) async {
+    // Changed userId to uid
     try {
-      await _firestore.collection('userProfiles').doc(userId).delete();
-      if (_auth.currentUser?.uid == userId) {
+      await _firestore
+          .collection(_userProfilesCollection)
+          .doc(uid)
+          .delete(); // Use consistent collection name and uid
+      if (_auth.currentUser?.uid == uid) {
         await _clearUserProfileCache();
       }
       _userProfileStreamController.add(null);
-      print('User profile $userId deleted from Firestore.');
+      print('User profile $uid deleted from Firestore.');
     } catch (e) {
-      print('Error deleting user profile $userId: $e');
+      print('Error deleting user profile $uid: $e');
       rethrow;
     }
   }

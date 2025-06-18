@@ -575,7 +575,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen> {
                   default:
                     return const SizedBox.shrink();
                 }
-              }).toList(),
+              }),
 
               const SizedBox(height: 30),
               ElevatedButton.icon(

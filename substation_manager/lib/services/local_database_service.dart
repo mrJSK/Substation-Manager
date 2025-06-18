@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/services.dart' show rootBundle; // For loading assets
+// For loading assets
 
 import 'package:substation_manager/models/area.dart';
 import 'package:substation_manager/models/substation.dart';

@@ -19,9 +19,12 @@ class AreaManagementScreen extends StatefulWidget {
 class _AreaManagementScreenState extends State<AreaManagementScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _areaNameController = TextEditingController();
+  final TextEditingController _stateController = TextEditingController();
+  final TextEditingController _citiesController = TextEditingController();
 
-  double? _selectedStateId; // Holds the ID of the selected state
-  List<StateModel> _availableStates = []; // All states for the dropdown
+  StateModel?
+  _selectedState; // Holds the full StateModel object for the selected state
+  List<StateModel> _availableStates = []; // All states for the bottom sheet
 
   List<CityModel> _allCitiesFromDB = []; // All cities loaded from DB
   List<CityModel> _selectedCities =
@@ -34,8 +37,11 @@ class _AreaManagementScreenState extends State<AreaManagementScreen> {
   ];
 
   List<Area> _areas = [];
-  bool _isLoading = true;
+  bool _isLoading = true; // Overall loading for initial data fetch
   Area? _areaToEdit;
+
+  // NEW: Separate loading state for the save button
+  bool _isSaving = false;
 
   final CoreFirestoreService _coreFirestoreService = CoreFirestoreService();
   final LocalDatabaseService _localDatabaseService = LocalDatabaseService();
@@ -44,8 +50,6 @@ class _AreaManagementScreenState extends State<AreaManagementScreen> {
   @override
   void initState() {
     super.initState();
-    // Schedule the initial data load to run AFTER the first frame has rendered,
-    // ensuring BuildContext is fully available for SnackBar calls.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });
@@ -54,6 +58,8 @@ class _AreaManagementScreenState extends State<AreaManagementScreen> {
   @override
   void dispose() {
     _areaNameController.dispose();
+    _stateController.dispose();
+    _citiesController.dispose();
     super.dispose();
   }
 
@@ -98,7 +104,13 @@ class _AreaManagementScreenState extends State<AreaManagementScreen> {
               _areas = areas;
               print('DEBUG: Loaded ${_areas.length} areas from Firestore.');
               if (_areaToEdit != null) {
-                _editArea(_areaToEdit!);
+                // Re-find the area in the updated list to ensure it's fresh
+                final updatedArea = _areas.firstWhereOrNull(
+                  (a) => a.id == _areaToEdit!.id,
+                );
+                if (updatedArea != null) {
+                  _editArea(updatedArea);
+                }
               }
             });
           }
@@ -137,11 +149,16 @@ class _AreaManagementScreenState extends State<AreaManagementScreen> {
     setState(() {
       _areaToEdit = area;
       _areaNameController.text = area.name;
-      _selectedStateId = area.state.id;
+      _selectedState = area.state; // Assign the full StateModel
+      _stateController.text =
+          area.state.name; // Set controller text for editing
       _selectedCities = List.from(area.cities);
+      _citiesController.text = _selectedCities
+          .map((c) => c.name)
+          .join(', '); // Set cities controller text for editing
       _selectedAreaPurpose = area.areaPurpose;
       print(
-        'DEBUG: Editing Area: ${area.name}, State ID: $_selectedStateId, Purpose: $_selectedAreaPurpose',
+        'DEBUG: Editing Area: ${area.name}, State: ${_selectedState?.name}, Purpose: $_selectedAreaPurpose',
       );
     });
   }
@@ -150,8 +167,10 @@ class _AreaManagementScreenState extends State<AreaManagementScreen> {
     setState(() {
       _areaToEdit = null;
       _areaNameController.clear();
-      _selectedStateId = null;
+      _selectedState = null; // Clear the selected state
+      _stateController.clear(); // Clear the state controller text
       _selectedCities = [];
+      _citiesController.clear(); // Clear the cities controller text
       _selectedAreaPurpose = null;
       _formKey.currentState?.reset();
       print('DEBUG: Form cleared.');
@@ -167,82 +186,76 @@ class _AreaManagementScreenState extends State<AreaManagementScreen> {
       );
       return;
     }
-    if (_selectedStateId == null) {
-      if (mounted)
+    // Validation for _selectedState should use its nullability directly
+    if (_selectedState == null) {
+      if (mounted) {
         SnackBarUtils.showSnackBar(
           context,
           'Please select a state.',
           isError: true,
         );
+      }
       return;
     }
     if (_selectedCities.isEmpty) {
-      if (mounted)
+      if (mounted) {
         SnackBarUtils.showSnackBar(
           context,
           'Please select at least one city.',
           isError: true,
         );
+      }
       return;
     }
     if (_selectedAreaPurpose == null) {
-      if (mounted)
+      if (mounted) {
         SnackBarUtils.showSnackBar(
           context,
           'Please select an area purpose.',
           isError: true,
         );
+      }
       return;
     }
 
     setState(() {
-      _isLoading = true;
+      _isSaving = true; // NEW: Set saving state to true
     });
 
     try {
-      final StateModel? selectedState = _availableStates.firstWhereOrNull(
-        (state) => state.id == _selectedStateId,
-      );
-      if (selectedState == null) {
-        if (mounted)
-          SnackBarUtils.showSnackBar(
-            context,
-            'Selected state not found.',
-            isError: true,
-          );
-        return;
-      }
-
       final Area area = Area(
         id: _areaToEdit?.id ?? Uuid().v4(),
         name: _areaNameController.text.trim(),
         areaPurpose: _selectedAreaPurpose!,
-        state: selectedState,
+        state: _selectedState!, // Use the full StateModel
         cities: _selectedCities,
       );
 
       if (_areaToEdit == null) {
         await _coreFirestoreService.addArea(area);
-        if (mounted)
+        if (mounted) {
           SnackBarUtils.showSnackBar(context, 'Area added successfully!');
+        }
       } else {
         await _coreFirestoreService.updateArea(area);
-        if (mounted)
+        if (mounted) {
           SnackBarUtils.showSnackBar(context, 'Area updated successfully!');
+        }
       }
       _clearForm();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         SnackBarUtils.showSnackBar(
           context,
           'Error saving area: ${e.toString()}',
           isError: true,
         );
+      }
       print('Error saving area: $e');
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _isSaving = false; // NEW: Set saving state to false
         });
       }
     }
@@ -274,22 +287,55 @@ class _AreaManagementScreenState extends State<AreaManagementScreen> {
     if (confirm) {
       try {
         await _coreFirestoreService.deleteArea(id);
-        if (mounted)
+        if (mounted) {
           SnackBarUtils.showSnackBar(context, 'Area deleted successfully!');
+        }
       } catch (e) {
-        if (mounted)
+        if (mounted) {
           SnackBarUtils.showSnackBar(
             context,
             'Error deleting area: $e',
             isError: true,
           );
+        }
         print('Error deleting area: $e');
       }
     }
   }
 
+  Future<void> _selectState() async {
+    final StateModel? result = await showModalBottomSheet<StateModel>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return _StateSingleSelectModal(
+          availableStates: _availableStates,
+          initialSelectedState: _selectedState,
+        );
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedState = result;
+        _stateController.text =
+            result.name; // Update controller text when state is selected
+        _selectedCities = []; // Clear selected cities when state changes
+        _citiesController
+            .clear(); // Clear cities controller text as cities are reset
+      });
+      if (mounted) {
+        SnackBarUtils.showSnackBar(
+          context,
+          'Selected State: ${result.name}',
+          isError: false,
+        );
+      }
+    }
+  }
+
   Future<void> _selectCities() async {
-    if (_selectedStateId == null) {
+    if (_selectedState == null) {
       SnackBarUtils.showSnackBar(
         context,
         'Please select a state first to choose cities.',
@@ -299,7 +345,9 @@ class _AreaManagementScreenState extends State<AreaManagementScreen> {
     }
 
     final List<CityModel> citiesForState = _allCitiesFromDB
-        .where((city) => city.stateId == _selectedStateId)
+        .where(
+          (city) => city.stateId == _selectedState!.id,
+        ) // Use _selectedState.id
         .toList();
 
     if (citiesForState.isEmpty) {
@@ -325,6 +373,9 @@ class _AreaManagementScreenState extends State<AreaManagementScreen> {
     if (result != null) {
       setState(() {
         _selectedCities = result;
+        _citiesController.text = _selectedCities
+            .map((c) => c.name)
+            .join(', '); // Update controller text with selected cities
       });
     }
   }
@@ -333,135 +384,139 @@ class _AreaManagementScreenState extends State<AreaManagementScreen> {
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    // Remove the top-level _isLoading check that replaced the entire screen
+    // if (_isLoading) {
+    //   return const Center(child: CircularProgressIndicator());
+    // }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Manage Areas')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              _areaToEdit == null ? 'Add New Area' : 'Edit Area',
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            Form(
-              key: _formKey,
+      // Show a full-screen loading indicator ONLY for initial data load
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextFormField(
-                    controller: _areaNameController,
-                    decoration: InputDecoration(
-                      labelText: 'Area Name',
-                      prefixIcon: Icon(Icons.map, color: colorScheme.primary),
-                    ),
-                    validator: (value) =>
-                        value!.isEmpty ? 'Area name cannot be empty' : null,
+                  Text(
+                    _areaToEdit == null ? 'Add New Area' : 'Edit Area',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 15),
-
-                  DropdownButtonFormField<double>(
-                    value: _selectedStateId,
-                    decoration: InputDecoration(
-                      labelText: 'State',
-                      prefixIcon: Icon(
-                        Icons.location_on,
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                    items: _availableStates.map((state) {
-                      return DropdownMenuItem<double>(
-                        value: state.id,
-                        child: Text(state.name),
-                      );
-                    }).toList(),
-                    onChanged: (double? newValue) {
-                      print(
-                        'DEBUG: State Dropdown onChanged triggered. New Value: $newValue',
-                      );
-                      if (mounted) {
-                        setState(() {
-                          _selectedStateId = newValue;
-                          _selectedCities = [];
-                        });
-                        final selectedStateName =
-                            _availableStates
-                                .firstWhereOrNull((s) => s.id == newValue)
-                                ?.name ??
-                            'N/A';
-                        SnackBarUtils.showSnackBar(
-                          context,
-                          'Selected State: $selectedStateName',
-                          isError: false,
-                        );
-                      }
-                    },
-                    validator: (value) =>
-                        value == null ? 'Select a state' : null,
-                  ),
-                  const SizedBox(height: 15),
-                  DropdownButtonFormField<String>(
-                    value: _selectedAreaPurpose,
-                    decoration: InputDecoration(
-                      labelText: 'Area Purpose',
-                      prefixIcon: Icon(Icons.work, color: colorScheme.primary),
-                    ),
-                    items: _areaPurposeOptions.map((purpose) {
-                      return DropdownMenuItem<String>(
-                        value: purpose,
-                        child: Text(purpose),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedAreaPurpose = newValue;
-                      });
-                    },
-                    validator: (value) =>
-                        value == null ? 'Select area purpose' : null,
-                  ),
-                  const SizedBox(height: 15),
-                  ElevatedButton.icon(
-                    onPressed: _selectCities,
-                    icon: Icon(
-                      Icons.location_city,
-                      color: colorScheme.onPrimary,
-                    ),
-                    label: Text(
-                      _selectedCities.isEmpty
-                          ? 'Select Cities'
-                          : 'Cities Selected (${_selectedCities.length})',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.onPrimary,
-                      minimumSize: const Size(double.infinity, 50),
-                    ),
-                  ),
-                  if (_selectedCities.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Wrap(
-                        spacing: 8.0,
-                        children: _selectedCities
-                            .map((city) => Chip(label: Text(city.name)))
-                            .toList(),
-                      ),
-                    ),
-                  const SizedBox(height: 30),
-
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton.icon(
-                          onPressed: _saveArea,
-                          icon: Icon(
-                            _areaToEdit == null ? Icons.add : Icons.save,
+                  const SizedBox(height: 20),
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _areaNameController,
+                          decoration: InputDecoration(
+                            labelText: 'Area Name',
+                            prefixIcon: Icon(
+                              Icons.map,
+                              color: colorScheme.primary,
+                            ),
                           ),
+                          validator: (value) => value!.isEmpty
+                              ? 'Area name cannot be empty'
+                              : null,
+                        ),
+                        const SizedBox(height: 15),
+
+                        // State Selection (TextFormField that acts like a button)
+                        TextFormField(
+                          controller: _stateController,
+                          readOnly: true, // Make it non-editable
+                          onTap: _selectState, // Open bottom sheet on tap
+                          decoration: InputDecoration(
+                            labelText: 'State',
+                            prefixIcon: Icon(
+                              Icons.location_on,
+                              color: colorScheme.primary,
+                            ),
+                            suffixIcon: Icon(
+                              Icons.arrow_drop_down,
+                              color: colorScheme.onSurface,
+                            ), // Dropdown arrow
+                          ),
+                          validator: (value) => _selectedState == null
+                              ? 'Please select a state'
+                              : null, // Validate based on _selectedState
+                        ),
+                        const SizedBox(height: 15),
+
+                        // City Selection (TextFormField that acts like a button)
+                        TextFormField(
+                          controller: _citiesController,
+                          readOnly: true, // Make it non-editable
+                          onTap: _selectCities, // Open bottom sheet on tap
+                          maxLines:
+                              null, // Allow text to wrap if many cities are selected
+                          decoration: InputDecoration(
+                            labelText: 'Cities',
+                            prefixIcon: Icon(
+                              Icons.location_city,
+                              color: colorScheme.primary,
+                            ),
+                            suffixIcon: Icon(
+                              Icons.arrow_drop_down,
+                              color: colorScheme.onSurface,
+                            ), // Dropdown arrow
+                          ),
+                          validator: (value) => _selectedCities.isEmpty
+                              ? 'Please select at least one city'
+                              : null, // Validate based on _selectedCities
+                        ),
+                        const SizedBox(
+                          height: 15,
+                        ), // Added SizedBox for consistent spacing
+
+                        DropdownButtonFormField<String>(
+                          value: _selectedAreaPurpose,
+                          decoration: InputDecoration(
+                            labelText: 'Area Purpose',
+                            prefixIcon: Icon(
+                              Icons.work,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                          items: _areaPurposeOptions.map((purpose) {
+                            return DropdownMenuItem<String>(
+                              value: purpose,
+                              child: Text(purpose),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedAreaPurpose = newValue;
+                            });
+                          },
+                          validator: (value) =>
+                              value == null ? 'Select area purpose' : null,
+                        ),
+                        const SizedBox(height: 30),
+
+                        // ElevatedButton for saving/updating - NOW WITH IN-BUTTON SPINNER
+                        ElevatedButton.icon(
+                          onPressed: _isSaving
+                              ? null
+                              : _saveArea, // Disable button if _isSaving is true
+                          icon:
+                              _isSaving // Conditionally show spinner or icon
+                              ? SizedBox(
+                                  width: 24, // Adjust size as needed
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2, // Make it thinner
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      colorScheme.onPrimary,
+                                    ), // Match button text color
+                                  ),
+                                )
+                              : Icon(
+                                  _areaToEdit == null ? Icons.add : Icons.save,
+                                ),
                           label: Text(
                             _areaToEdit == null ? 'Add Area' : 'Update Area',
                           ),
@@ -471,100 +526,103 @@ class _AreaManagementScreenState extends State<AreaManagementScreen> {
                             minimumSize: const Size(double.infinity, 50),
                           ),
                         ),
-                  if (_areaToEdit != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10.0),
-                      child: OutlinedButton.icon(
-                        onPressed: _clearForm,
-                        icon: const Icon(Icons.cancel),
-                        label: const Text('Cancel Edit'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: colorScheme.onSurface,
-                          side: BorderSide(
-                            color: colorScheme.onSurface.withOpacity(0.5),
+                        if (_areaToEdit != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10.0),
+                            child: OutlinedButton.icon(
+                              onPressed: _clearForm,
+                              icon: const Icon(Icons.cancel),
+                              label: const Text('Cancel Edit'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: colorScheme.onSurface,
+                                side: BorderSide(
+                                  color: colorScheme.onSurface.withOpacity(0.5),
+                                ),
+                                minimumSize: const Size(double.infinity, 50),
+                              ),
+                            ),
                           ),
-                          minimumSize: const Size(double.infinity, 50),
-                        ),
-                      ),
+                      ],
                     ),
+                  ),
+                  const SizedBox(height: 40),
+                  Text(
+                    'Existing Areas',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  _areas.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No areas added yet.',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(fontStyle: FontStyle.italic),
+                          ),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _areas.length,
+                          itemBuilder: (context, index) {
+                            final area = _areas[index];
+                            String cityNames = area.cities
+                                .map((c) => c.name)
+                                .join(', ');
+                            return Card(
+                              margin: const EdgeInsets.symmetric(vertical: 8),
+                              elevation: 3,
+                              child: ListTile(
+                                title: Text(area.name),
+                                subtitle: Text(
+                                  '${area.state.name} (${area.areaPurpose})${cityNames.isNotEmpty ? ' ($cityNames)' : ''}',
+                                ),
+                                trailing: PopupMenuButton<String>(
+                                  onSelected: (String result) {
+                                    if (result == 'edit') {
+                                      _editArea(area);
+                                    } else if (result == 'delete') {
+                                      _deleteArea(area.id);
+                                    }
+                                  },
+                                  itemBuilder: (BuildContext context) =>
+                                      <PopupMenuEntry<String>>[
+                                        const PopupMenuItem<String>(
+                                          value: 'edit',
+                                          child: ListTile(
+                                            leading: Icon(Icons.edit),
+                                            title: Text('Edit'),
+                                          ),
+                                        ),
+                                        const PopupMenuItem<String>(
+                                          value: 'delete',
+                                          child: ListTile(
+                                            leading: Icon(
+                                              Icons.delete,
+                                              color: Colors.red,
+                                            ),
+                                            title: Text(
+                                              'Delete',
+                                              style: TextStyle(
+                                                color: Colors.red,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                 ],
               ),
             ),
-            const SizedBox(height: 40),
-            Text(
-              'Existing Areas',
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            _areas.isEmpty
-                ? Center(
-                    child: Text(
-                      'No areas added yet.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _areas.length,
-                    itemBuilder: (context, index) {
-                      final area = _areas[index];
-                      String cityNames = area.cities
-                          .map((c) => c.name)
-                          .join(', ');
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        elevation: 3,
-                        child: ListTile(
-                          subtitle: Text(
-                            '${area.state.name} (${area.areaPurpose})${cityNames.isNotEmpty ? ' ($cityNames)' : ''}',
-                          ),
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (String result) {
-                              if (result == 'edit') {
-                                _editArea(area);
-                              } else if (result == 'delete') {
-                                _deleteArea(area.id);
-                              }
-                            },
-                            itemBuilder: (BuildContext context) =>
-                                <PopupMenuEntry<String>>[
-                                  const PopupMenuItem<String>(
-                                    value: 'edit',
-                                    child: ListTile(
-                                      leading: Icon(Icons.edit),
-                                      title: Text('Edit'),
-                                    ),
-                                  ),
-                                  const PopupMenuItem<String>(
-                                    value: 'delete',
-                                    child: ListTile(
-                                      leading: Icon(
-                                        Icons.delete,
-                                        color: Colors.red,
-                                      ),
-                                      title: Text(
-                                        'Delete',
-                                        style: TextStyle(color: Colors.red),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ],
-        ),
-      ),
     );
   }
 }
 
+// Reusable City Multi-Select Modal
 class _CityMultiSelectModal extends StatefulWidget {
   final List<CityModel> availableCities;
   final List<CityModel> initialSelectedCities;
@@ -668,6 +726,110 @@ class _CityMultiSelectModalState extends State<_CityMultiSelectModal> {
                   .where((city) => _currentSelectedCityIds.contains(city.id))
                   .toList();
               Navigator.pop(context, result);
+            },
+            child: const Text('Confirm Selection'),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+// State Single-Select Modal
+class _StateSingleSelectModal extends StatefulWidget {
+  final List<StateModel> availableStates;
+  final StateModel? initialSelectedState;
+
+  const _StateSingleSelectModal({
+    required this.availableStates,
+    this.initialSelectedState,
+  });
+
+  @override
+  _StateSingleSelectModalState createState() => _StateSingleSelectModalState();
+}
+
+class _StateSingleSelectModalState extends State<_StateSingleSelectModal> {
+  final TextEditingController _searchController = TextEditingController();
+  List<StateModel> _filteredStates = [];
+  StateModel? _currentSelectedState;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentSelectedState = widget.initialSelectedState;
+    _filteredStates = List.from(widget.availableStates);
+    _searchController.addListener(_filterStates);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_filterStates);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterStates() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredStates = widget.availableStates.where((state) {
+        return state.name.toLowerCase().contains(query);
+      }).toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 16,
+        right: 16,
+        top: 20,
+      ),
+      child: Column(
+        children: [
+          Text('Select State', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              labelText: 'Search State',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: _filteredStates.isEmpty
+                ? const Center(child: Text('No states found.'))
+                : ListView.builder(
+                    itemCount: _filteredStates.length,
+                    itemBuilder: (context, index) {
+                      final state = _filteredStates[index];
+                      // Use RadioListTile for single selection
+                      return RadioListTile<StateModel>(
+                        title: Text(state.name),
+                        value: state,
+                        groupValue:
+                            _currentSelectedState, // Group all radio buttons
+                        onChanged: (StateModel? selected) {
+                          setState(() {
+                            _currentSelectedState = selected;
+                          });
+                        },
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context, _currentSelectedState);
             },
             child: const Text('Confirm Selection'),
           ),

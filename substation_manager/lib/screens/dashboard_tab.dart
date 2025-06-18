@@ -241,7 +241,7 @@ class _DashboardTabState extends State<DashboardTab> {
     // Calculate progress summaries for JEs/SSOs (for Admin/SDO views)
     final Map<String, UserProgressSummary> summaries = {};
     if (currentUser.role == 'Admin' || currentUser.role == 'SDO') {
-      _juniorStaff.forEach((user) {
+      for (var user in _juniorStaff) {
         int assignedSubstations = _allSubstations
             .where((s) => user.assignedSubstationIds.contains(s.id))
             .length;
@@ -274,7 +274,7 @@ class _DashboardTabState extends State<DashboardTab> {
           substationsCompleted: completedSubstations,
           substationsWorkingPending: workingPendingSubstations,
         );
-      });
+      }
     }
 
     setState(() {
@@ -511,8 +511,9 @@ class _DashboardTabState extends State<DashboardTab> {
                     itemCount: _allUsers.length,
                     itemBuilder: (context, index) {
                       final user = _allUsers[index];
-                      if (user.role == 'Admin')
+                      if (user.role == 'Admin') {
                         return const SizedBox.shrink(); // Admins don't need progress summary here
+                      }
 
                       final summary =
                           _userProgressSummaries[user

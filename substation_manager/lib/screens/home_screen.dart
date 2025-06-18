@@ -2,28 +2,25 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:substation_manager/screens/sign_in_screen.dart';
-import 'package:substation_manager/screens/dashboard_tab.dart';
-import 'package:substation_manager/screens/export_screen.dart';
-import 'package:substation_manager/screens/realtime_tasks_screen.dart'; // This will eventually be for "Daily Operations"
-import 'package:substation_manager/utils/snackbar_utils.dart';
-import 'package:substation_manager/screens/info_screen.dart';
-import 'package:substation_manager/services/auth_service.dart';
-import 'package:substation_manager/models/user_profile.dart';
-import 'package:substation_manager/screens/admin_user_management_screen.dart';
-import 'package:substation_manager/screens/waiting_for_approval_screen.dart';
-
-// NEW IMPORTS FOR SUBSTATION APP MANAGEMENT SCREENS (Ensure these files exist!)
-import 'package:substation_manager/screens/area_management_screen.dart';
-import 'package:substation_manager/screens/substation_management_screen.dart';
-import 'package:substation_manager/screens/master_equipment_management_screen.dart';
-import 'package:substation_manager/screens/substation_sld_builder_screen.dart'; // This is the SLD builder screen
-import 'package:substation_manager/services/core_firestore_service.dart'; // Service to fetch substations
-import 'package:substation_manager/models/substation.dart'; // Substation model
-import 'package:collection/collection.dart'; // For .firstWhereOrNull extension method
-
-final GlobalKey<HomeScreenState> homeScreenKey = GlobalKey<HomeScreenState>();
+import 'package:substation_manager/models/user_profile.dart'; // Ensure UserProfile model is available
+import 'package:substation_manager/models/area.dart'; // Ensure Area model is available
+import 'package:substation_manager/models/substation.dart'; // Ensure Substation model is available
+import 'package:substation_manager/services/auth_service.dart'; // Ensure AuthService is available
+import 'package:substation_manager/services/core_firestore_service.dart'; // Ensure CoreFirestoreService is available
+import 'package:substation_manager/utils/snackbar_utils.dart'; // Ensure SnackBarUtils is available
+import 'package:substation_manager/screens/sign_in_screen.dart'; // Ensure SignInScreen is available
+import 'package:substation_manager/screens/admin_user_management_screen.dart'; // Ensure AdminUserManagementScreen is available
+import 'package:substation_manager/screens/substation_management_screen.dart'; // Ensure SubstationManagementScreen is available
+import 'package:substation_manager/screens/area_management_screen.dart'; // Ensure AreaManagementScreen is available
+import 'package:substation_manager/screens/assign_areas_to_sdo_screen.dart'; // Corrected import
+import 'package:substation_manager/screens/assign_substations_to_user_screen.dart'; // Corrected import
+import 'package:substation_manager/screens/master_equipment_management_screen.dart'; // Ensure MasterEquipmentManagementScreen is available
+import 'package:substation_manager/screens/realtime_tasks_screen.dart'; // Ensure RealtimeTasksScreen is available
+import 'package:substation_manager/screens/dashboard_tab.dart'; // Ensure DashboardTab is available
+import 'package:substation_manager/screens/info_screen.dart'; // Ensure InfoScreen is available
+import 'package:substation_manager/screens/export_screen.dart'; // Ensure ExportScreen is available
+import 'package:substation_manager/screens/waiting_for_approval_screen.dart'; // Ensure WaitingForApprovalScreen is available
+import 'package:substation_manager/screens/sld_selection_screen.dart'; // Ensure SldSelectionScreen is available
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,45 +30,89 @@ class HomeScreen extends StatefulWidget {
 }
 
 class HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
-
   final AuthService _authService = AuthService();
   final CoreFirestoreService _coreFirestoreService = CoreFirestoreService();
+  UserProfile? _currentUserProfile;
+  List<Area> _assignedAreas = [];
+  List<Substation> _assignedSubstations = [];
+  bool _isProfileLoading = true;
+  int _selectedIndex = 0; // For BottomNavigationBar
 
   @override
   void initState() {
     super.initState();
+    _loadUserProfile();
   }
 
-  void changeTab(int index) {
-    setState(() {
-      _selectedIndex = index;
+  Future<void> _loadUserProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // Listen to UserProfile stream from Firestore
+      _coreFirestoreService.getUserProfileStream(user.uid).listen((profile) {
+        if (mounted) {
+          setState(() {
+            _currentUserProfile = profile;
+            _isProfileLoading = false;
+            if (_currentUserProfile != null) {
+              // Load assigned areas/substations based on the fetched profile
+              _loadAssignedData(_currentUserProfile!);
+            }
+          });
+        }
+      });
+    } else {
+      if (mounted) {
+        setState(() {
+          _isProfileLoading = false;
+          // If no user, navigate to sign in
+          _navigateToSignIn();
+        });
+      }
+    }
+  }
+
+  // Separate function to navigate to sign-in, to avoid issues during build
+  void _navigateToSignIn() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const SignInScreen()),
+        (Route<dynamic> route) => false,
+      );
     });
   }
 
-  Future<void> _signOut() async {
+  Future<void> _loadAssignedData(UserProfile profile) async {
     try {
-      await _authService.signOut();
-      final GoogleSignIn googleSignIn = GoogleSignIn();
-      if (await googleSignIn.isSignedIn()) {
-        await googleSignIn.signOut();
-      }
-
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const SignInScreen()),
-          (Route<dynamic> route) => false,
+      if (profile.role == 'Admin') {
+        _assignedAreas = await _coreFirestoreService.getAreasOnce();
+        _assignedSubstations = await _coreFirestoreService.getSubstationsOnce();
+      } else if (profile.role == 'SDO') {
+        _assignedAreas = await _coreFirestoreService.getAssignedAreasForSdo(
+          profile.uid,
         );
+        _assignedSubstations = await _coreFirestoreService
+            .getSubstationsByAreaIds(_assignedAreas.map((e) => e.id).toList());
+      } else if (profile.role == 'JE') {
+        _assignedSubstations = await _coreFirestoreService
+            .getAssignedSubstationsForJe(profile.uid);
+        // Determine areas based on assigned substations, if needed for display
+        final Set<String> areaIds = _assignedSubstations
+            .map((s) => s.areaId)
+            .toSet();
+        _assignedAreas = (await _coreFirestoreService.getAreasOnce())
+            .where((a) => areaIds.contains(a.id))
+            .toList();
       }
+      setState(() {}); // Update UI after loading assigned data
     } catch (e) {
       if (mounted) {
         SnackBarUtils.showSnackBar(
           context,
-          'Error signing out: ${e.toString()}',
+          'Error loading assigned data: ${e.toString()}',
           isError: true,
         );
       }
-      print('Error signing out: $e');
+      print('Error loading assigned data: $e');
     }
   }
 
@@ -81,44 +122,19 @@ class HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _navigateToInfoScreen() {
-    Navigator.pop(context);
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const InfoScreen()),
-    );
+  Future<void> _signOut() async {
+    await _authService.signOut();
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const SignInScreen()),
+        (Route<dynamic> route) => false,
+      );
+    }
   }
 
-  void _navigateToAreaManagementScreen() {
-    Navigator.pop(context);
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AreaManagementScreen()),
-    );
-  }
-
-  void _navigateToSubstationManagementScreen() {
-    Navigator.pop(context);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const SubstationManagementScreen(),
-      ),
-    );
-  }
-
-  void _navigateToMasterEquipmentManagementScreen() {
-    Navigator.pop(context);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const MasterEquipmentManagementScreen(),
-      ),
-    );
-  }
-
-  void _navigateToAdminUserManagementScreen() {
-    Navigator.pop(context);
+  // Navigation methods
+  void _navigateToUserManagementScreen() {
+    Navigator.pop(context); // Close the drawer
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -127,269 +143,309 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // NEW: Navigate to SLD Builder Screen
-  Future<void> _navigateToSLDBuilderScreen(
-    UserProfile currentUserProfile,
-  ) async {
+  void _navigateToAreaManagementScreen() {
     Navigator.pop(context); // Close the drawer
-    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AreaManagementScreen()),
+    );
+  }
 
-    List<Substation> substations = [];
-    try {
-      // Fetch all substations based on the user's role and assigned areas/substations
-      if (currentUserProfile.role == 'Admin') {
-        substations = await _coreFirestoreService.getSubstationsOnce();
-      } else if (currentUserProfile.role == 'SDO') {
-        final allSubstations = await _coreFirestoreService.getSubstationsOnce();
-        substations = allSubstations
-            .where((s) => currentUserProfile.assignedAreaIds.contains(s.areaId))
-            .toList();
-      } else if (currentUserProfile.role == 'JE' ||
-          currentUserProfile.role == 'SSO') {
-        final allSubstations = await _coreFirestoreService.getSubstationsOnce();
-        substations = allSubstations
-            .where(
-              (s) => currentUserProfile.assignedSubstationIds.contains(s.id),
-            )
-            .toList();
-      }
-    } catch (e) {
-      if (mounted) {
-        SnackBarUtils.showSnackBar(
-          context,
-          'Error fetching substations: $e',
-          isError: true,
-        );
-      }
-      print('Error fetching substations for SLD Builder: $e');
-      return;
-    }
+  void _navigateToSubstationManagementScreen() {
+    Navigator.pop(context); // Close the drawer
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SubstationManagementScreen(),
+      ),
+    );
+  }
 
-    if (substations.isNotEmpty && mounted) {
-      // For demo purposes, we'll just open the SLD builder for the first available substation.
-      // In a real app, you'd have a list of substations and let the user choose one to view its SLD.
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              SubstationSLDBuilderScreen(substation: substations.first),
-        ),
-      );
-    } else {
-      if (mounted) {
-        SnackBarUtils.showSnackBar(
-          context,
-          'No substations found or assigned to you to build/view SLD. Please add a substation first.',
-          isError: true,
-        );
-      }
-    }
+  void _navigateToAssignAreasToSdoScreen() {
+    Navigator.pop(context); // Close the drawer
+    // Corrected class name capitalization
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AssignAreasToSdoScreen()),
+    );
+  }
+
+  void _navigateToAssignSubstationsToUserScreen() {
+    Navigator.pop(context); // Close the drawer
+    // Corrected class name capitalization
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AssignSubstationsToUserScreen(),
+      ),
+    );
+  }
+
+  void _navigateToMasterEquipmentManagementScreen() {
+    Navigator.pop(context); // Close the drawer
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MasterEquipmentManagementScreen(),
+      ),
+    );
+  }
+
+  // New: Navigate to SLD Builder Selection Screen
+  void _navigateToSLDBuilderSelectionScreen() {
+    Navigator.pop(context); // Close the drawer
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            const SldSelectionScreen(), // Navigate to selection screen
+      ),
+    );
+  }
+
+  void _navigateToExportScreen() {
+    Navigator.pop(context); // Close the drawer
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ExportScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    String appBarTitle;
-    switch (_selectedIndex) {
-      case 0:
-        appBarTitle = 'Substation Dashboard';
-        break;
-      case 1:
-        appBarTitle = 'Export Records';
-        break;
-      case 2:
-        appBarTitle = 'Daily Operations';
-        break;
-      default:
-        appBarTitle = 'Substation Manager';
+    if (_isProfileLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return StreamBuilder<UserProfile?>(
-      stream: _authService.userProfileStream,
-      builder: (context, snapshot) {
-        final UserProfile? currentUserProfile = snapshot.data;
-        final bool isLoadingProfile =
-            snapshot.connectionState == ConnectionState.waiting;
+    final currentUserProfile = _currentUserProfile;
 
-        // Define the list of tab widgets. Ensure all these screen files exist.
-        final List<Widget> _widgetOptions = <Widget>[
-          DashboardTab(currentUserProfile: currentUserProfile),
-          ExportScreen(currentUserProfile: currentUserProfile),
-          RealTimeTasksScreen(
-            currentUserProfile: currentUserProfile,
-          ), // This is the "Operations" tab
-        ];
+    if (currentUserProfile == null) {
+      // If profile is null after loading, user is not authenticated or not found.
+      // This should ideally be handled by an auth state listener higher up,
+      // but as a fallback, ensure we don't proceed without a profile.
+      return const SignInScreen();
+    }
 
-        // Handle loading and unapproved user states
-        if (isLoadingProfile) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+    // Check if status is explicitly 'rejected' or 'pending' and redirect
+    if (currentUserProfile.status == 'rejected' ||
+        currentUserProfile.status == 'pending') {
+      // Ensure navigation happens once after build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) =>
+                WaitingForApprovalScreen(userProfile: currentUserProfile),
+          ),
+          (Route<dynamic> route) => false,
+        );
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // Determine the content for the body based on the selected index
+    Widget buildBodyContent() {
+      switch (_selectedIndex) {
+        case 0:
+          // Dashboard tab now takes currentUserProfile directly
+          return DashboardTab(
+            currentUserProfile: currentUserProfile, // Pass the actual profile
           );
-        }
-
-        if (currentUserProfile == null ||
-            currentUserProfile.status != 'approved') {
-          // If profile is null or not approved, redirect to approval/sign-in screen
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (currentUserProfile == null) {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const SignInScreen()),
-                (Route<dynamic> route) => false,
-              );
-            } else {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (context) =>
-                      WaitingForApprovalScreen(userProfile: currentUserProfile),
-                ),
-                (Route<dynamic> route) => false,
-              );
-            }
-          });
-          return const Scaffold(
-            // Show loading indicator while navigating
-            body: Center(child: CircularProgressIndicator()),
+        case 1:
+          // RealTimeTasksScreen now takes currentUserProfile directly
+          return RealTimeTasksScreen(
+            currentUserProfile: currentUserProfile, // Pass the actual profile
           );
-        }
+        case 2:
+          return const InfoScreen(); // Info screen
+        default:
+          return const Center(child: Text('Unknown Screen'));
+      }
+    }
 
-        // Main Scaffold for approved users
-        return Scaffold(
-          appBar: AppBar(title: Text(appBarTitle), centerTitle: true),
-          drawer: Drawer(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: <Widget>[
-                // Drawer Header (User info)
-                DrawerHeader(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Substation Manager',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(color: Colors.white),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        currentUserProfile.email,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                      ),
-                      if (currentUserProfile.role != null)
-                        Text(
-                          'Role: ${currentUserProfile.role}',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Colors.white70,
-                                fontStyle: FontStyle.italic,
-                              ),
-                        ),
-                    ],
-                  ),
-                ),
-                // Info Screen Link (available to all roles)
-                ListTile(
-                  leading: Icon(
-                    Icons.info_outline,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  title: const Text('Info'),
-                  onTap: _navigateToInfoScreen,
-                ),
-                // Admin-specific menu items
-                if (currentUserProfile.role == 'Admin') ...[
-                  ListTile(
-                    leading: Icon(
-                      Icons.people,
-                      color: Theme.of(context).colorScheme.primary,
+    // Determine AppBar title based on selected index
+    String appBarTitle = 'Dashboard';
+    switch (_selectedIndex) {
+      case 0:
+        appBarTitle = 'Dashboard';
+        break;
+      case 1:
+        appBarTitle = 'Daily Operations'; // Changed label from 'Realtime Tasks'
+        break;
+      case 2:
+        appBarTitle = 'Info & Help';
+        break;
+    }
+
+    // Main Scaffold for approved users
+    return Scaffold(
+      appBar: AppBar(title: Text(appBarTitle), centerTitle: true),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    currentUserProfile.displayName ??
+                        currentUserProfile
+                            .email, // Use displayName, fallback to email
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onPrimary,
                     ),
-                    title: const Text('User Management'),
-                    onTap: _navigateToAdminUserManagementScreen,
                   ),
-                  ListTile(
-                    leading: Icon(
-                      Icons.location_city,
-                      color: Theme.of(context).colorScheme.primary,
+                  Text(
+                    currentUserProfile.email,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onPrimary,
                     ),
-                    title: const Text('Manage Areas'),
-                    onTap: _navigateToAreaManagementScreen,
                   ),
-                  ListTile(
-                    leading: Icon(
-                      Icons.electrical_services,
-                      color: Theme.of(context).colorScheme.primary,
+                  Text(
+                    'Role: ${currentUserProfile.role ?? 'N/A'}', // Display 'N/A' if role is null
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onPrimary,
                     ),
-                    title: const Text('Manage Substations'),
-                    onTap: _navigateToSubstationManagementScreen,
-                  ),
-                  ListTile(
-                    leading: Icon(
-                      Icons.construction,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    title: const Text('Master Equipment'),
-                    onTap: _navigateToMasterEquipmentManagementScreen,
-                  ),
-                  // SLD Builder link (for Admin/Dev access - or any role you grant it to)
-                  ListTile(
-                    leading: Icon(
-                      Icons.schema,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    title: const Text('SLD Builder (Dev)'),
-                    onTap: () =>
-                        _navigateToSLDBuilderScreen(currentUserProfile),
                   ),
                 ],
-                // Separator before Logout
-                const Divider(),
-                // Logout Link
-                ListTile(
-                  leading: Icon(
-                    Icons.logout,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  title: const Text('Logout'),
-                  onTap: () {
-                    Navigator.pop(context); // Close drawer before logging out
-                    _signOut();
-                  },
-                ),
-              ],
+              ),
             ),
-          ),
-          // Main content area, showing the selected tab
-          body: Center(child: _widgetOptions.elementAt(_selectedIndex)),
-          // Bottom Navigation Bar
-          bottomNavigationBar: BottomNavigationBar(
-            items: const <BottomNavigationBarItem>[
-              BottomNavigationBarItem(
-                icon: Icon(Icons.dashboard),
-                label: 'Dashboard',
+            ListTile(
+              leading: Icon(
+                Icons.dashboard,
+                color: Theme.of(context).colorScheme.primary,
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.upload_file),
-                label: 'Export',
+              title: const Text('Dashboard'),
+              onTap: () {
+                _onItemTapped(0);
+                Navigator.pop(context); // Close the drawer
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.task,
+                color: Theme.of(context).colorScheme.primary,
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.view_timeline), // "Operations" tab
-                label: 'Operations',
+              title: const Text(
+                'Daily Operations',
+              ), // Changed label to 'Daily Operations'
+              onTap: () {
+                _onItemTapped(1);
+                Navigator.pop(context); // Close the drawer
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.info,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: const Text('Info & Help'),
+              onTap: () {
+                _onItemTapped(2);
+                Navigator.pop(context); // Close the drawer
+              },
+            ),
+            const Divider(), // Divider for separation
+            // Admin-specific menu items
+            if (currentUserProfile.role == 'Admin') ...[
+              ListTile(
+                leading: Icon(
+                  Icons.people,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: const Text('User Management'),
+                onTap: _navigateToUserManagementScreen,
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.location_on,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: const Text('Area Management'),
+                onTap: _navigateToAreaManagementScreen,
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.electrical_services,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: const Text('Substation Management'),
+                onTap: _navigateToSubstationManagementScreen,
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.assignment_ind,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: const Text('Assign Areas to SDO'),
+                onTap: _navigateToAssignAreasToSdoScreen,
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.assignment,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: const Text('Assign Substations to JE'),
+                onTap: _navigateToAssignSubstationsToUserScreen,
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.construction,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: const Text('Master Equipment Management'),
+                onTap: _navigateToMasterEquipmentManagementScreen,
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.schema,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: const Text('SLD Builder (Dev)'),
+                onTap: () =>
+                    _navigateToSLDBuilderSelectionScreen(), // Navigates to selection screen
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.download,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: const Text('Export Data'),
+                onTap: _navigateToExportScreen,
               ),
             ],
-            currentIndex: _selectedIndex,
-            selectedItemColor: Theme.of(context).primaryColor,
-            unselectedItemColor: Theme.of(context).hintColor,
-            backgroundColor: Theme.of(context).canvasColor,
-            type: BottomNavigationBarType
-                .fixed, // Ensures labels are always visible
-            onTap: _onItemTapped,
+            const Divider(),
+            ListTile(
+              leading: Icon(
+                Icons.logout,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: const Text('Sign Out'),
+              onTap: _signOut,
+            ),
+          ],
+        ),
+      ),
+      body: buildBodyContent(),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
           ),
-        );
-      },
+          BottomNavigationBarItem(
+            icon: Icon(Icons.task),
+            label: 'Operations', // Changed label
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.info), label: 'Info'),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        onTap: _onItemTapped,
+      ),
     );
   }
 }

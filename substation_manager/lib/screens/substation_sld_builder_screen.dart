@@ -8,9 +8,9 @@ import 'package:substation_manager/services/equipment_firestore_service.dart';
 import 'package:substation_manager/services/electrical_connection_firestore_service.dart';
 import 'package:substation_manager/utils/snackbar_utils.dart';
 import 'package:substation_manager/screens/equipment_detail_screen.dart'; // To navigate to equipment detail
-import 'dart:math'; // For min function
+// For min function
 import 'dart:async'; // For StreamSubscription
-import 'dart:ui' as ui; // For Image drawing
+// For Image drawing
 import 'package:vector_math/vector_math_64.dart' as vmath; // For Vector3
 
 // Helper to draw equipment symbols (Simplified for now)
