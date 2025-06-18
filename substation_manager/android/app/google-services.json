@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "683826355581",
+    "project_id": "substation-manager",
+    "storage_bucket": "substation-manager.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:683826355581:android:6395c510ceb555beed0014",
+        "android_client_info": {
+          "package_name": "com.example.substation_manager"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-HqA2f6FbEsEAznw0qw0MAt4PSa3lJcw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
