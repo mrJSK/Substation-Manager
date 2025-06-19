@@ -52,6 +52,7 @@ dependencies:
   shared_preferences: ^2.0.15 # For local user profile caching/preferences
   uuid: ^4.3.3 # For generating unique IDs for new records/equipment
   collection: ^1.18.0 # Utilities for collections, like firstWhereOrNull
+  provider: ^6.0.5
 
 dev_dependencies:
   flutter_test:

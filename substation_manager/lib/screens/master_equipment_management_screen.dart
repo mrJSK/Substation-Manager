@@ -379,7 +379,7 @@ class _MasterEquipmentManagementScreenState
   Future<void> _deleteTemplate(String id) async {
     if (!mounted) return; // Ensure the widget is still in the tree
 
-    final bool? confirm =
+    final bool confirm =
         await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -501,6 +501,40 @@ class _MasterEquipmentManagementScreenState
                           '${template.definedRelays.length} defined relays, '
                           '${template.definedEnergyMeters.length} defined energy meters',
                         ),
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (String result) {
+                            if (result == 'edit') {
+                              _showFormForEdit(template);
+                            } else if (result == 'delete') {
+                              _deleteTemplate(template.id);
+                            }
+                          },
+                          itemBuilder: (BuildContext context) =>
+                              <PopupMenuEntry<String>>[
+                                const PopupMenuItem<String>(
+                                  value: 'edit',
+                                  child: ListTile(
+                                    leading: Icon(Icons.edit),
+                                    title: Text('Edit'),
+                                  ),
+                                ),
+                                PopupMenuItem<String>(
+                                  value: 'delete',
+                                  child: ListTile(
+                                    leading: Icon(
+                                      Icons.delete,
+                                      color: colorScheme.error,
+                                    ),
+                                    title: Text(
+                                      'Delete',
+                                      style: TextStyle(
+                                        color: colorScheme.error,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                        ),
                         children: [
                           Padding(
                             padding: const EdgeInsets.all(16.0),
@@ -604,40 +638,6 @@ class _MasterEquipmentManagementScreenState
                             ),
                           ),
                         ],
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (String result) {
-                            if (result == 'edit') {
-                              _showFormForEdit(template);
-                            } else if (result == 'delete') {
-                              _deleteTemplate(template.id);
-                            }
-                          },
-                          itemBuilder: (BuildContext context) =>
-                              <PopupMenuEntry<String>>[
-                                const PopupMenuItem<String>(
-                                  value: 'edit',
-                                  child: ListTile(
-                                    leading: Icon(Icons.edit),
-                                    title: Text('Edit'),
-                                  ),
-                                ),
-                                PopupMenuItem<String>(
-                                  value: 'delete',
-                                  child: ListTile(
-                                    leading: Icon(
-                                      Icons.delete,
-                                      color: colorScheme.error,
-                                    ),
-                                    title: Text(
-                                      'Delete',
-                                      style: TextStyle(
-                                        color: colorScheme.error,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                        ),
                       ),
                     );
                   },

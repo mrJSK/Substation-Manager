@@ -301,12 +301,13 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     }
 
     if (latestUser == null) {
-      if (mounted)
+      if (mounted) {
         SnackBarUtils.showSnackBar(
           context,
           'User not found or deleted.',
           isError: true,
         );
+      }
       return;
     }
 
@@ -360,14 +361,10 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     ),
                     items: <DropdownMenuItem<String?>>[
                       const DropdownMenuItem(value: null, child: Text('None')),
-                      ...['Admin', 'SDO', 'JE', 'SSO']
-                          .map(
-                            (role) => DropdownMenuItem(
-                              value: role,
-                              child: Text(role),
-                            ),
-                          )
-                          .toList(),
+                      ...['Admin', 'SDO', 'JE', 'SSO'].map(
+                        (role) =>
+                            DropdownMenuItem(value: role, child: Text(role)),
+                      ),
                     ],
                     onChanged: (value) {
                       setModalState(() {

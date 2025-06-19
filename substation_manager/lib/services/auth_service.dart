@@ -187,7 +187,7 @@ class AuthService {
           .get(); // Use consistent collection name
       return querySnapshot.docs
           .map(
-            (doc) => UserProfile.fromMap(doc.data()!),
+            (doc) => UserProfile.fromMap(doc.data()),
           ) // Ensure data() is not null
           .toList();
     } catch (e) {
@@ -204,7 +204,7 @@ class AuthService {
         .map(
           (snapshot) => snapshot.docs
               .map(
-                (doc) => UserProfile.fromMap(doc.data()!),
+                (doc) => UserProfile.fromMap(doc.data()),
               ) // Ensure data() is not null
               .toList(),
         )

@@ -267,7 +267,7 @@ class HomeScreenState extends State<HomeScreen> {
     }
 
     // Determine the content for the body based on the selected index
-    Widget _buildBodyContent() {
+    Widget buildBodyContent() {
       switch (_selectedIndex) {
         case 0:
           // Dashboard tab now takes currentUserProfile directly
@@ -453,7 +453,7 @@ class HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      body: _buildBodyContent(),
+      body: buildBodyContent(),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(

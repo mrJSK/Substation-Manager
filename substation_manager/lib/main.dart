@@ -1,13 +1,11 @@
 // lib/main.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'
-    show rootBundle; // Required for rootBundle to load assets
+// Required for rootBundle to load assets
 import 'package:substation_manager/screens/splash_screen.dart';
-import 'package:substation_manager/services/local_database_service.dart';
 import 'package:substation_manager/screens/connectivity_wrapper.dart'; // Added back
-import 'package:substation_manager/firebase_options.dart'; // Assuming this is needed for Firebase.initializeApp if done here
-import 'package:firebase_core/firebase_core.dart'; // Added back for Firebase.initializeApp
+// Assuming this is needed for Firebase.initializeApp if done here
+// Added back for Firebase.initializeApp
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

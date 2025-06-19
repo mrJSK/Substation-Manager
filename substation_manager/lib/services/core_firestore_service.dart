@@ -108,7 +108,7 @@ class CoreFirestoreService {
     return _userProfilesRef
         .where('role', isEqualTo: role)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => doc.data()!).toList());
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
   }
 
   Future<List<UserProfile>> getUserProfilesByRoleOnce(String role) async {
@@ -116,7 +116,7 @@ class CoreFirestoreService {
       final querySnapshot = await _userProfilesRef
           .where('role', isEqualTo: role)
           .get();
-      return querySnapshot.docs.map((doc) => doc.data()!).toList();
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
     } catch (e) {
       print('Error fetching user profiles by role: $e');
       rethrow;

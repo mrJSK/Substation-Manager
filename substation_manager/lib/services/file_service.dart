@@ -1,7 +1,6 @@
 // lib/services/file_service.dart
 
 import 'dart:io';
-import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -10,7 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:substation_manager/models/daily_reading.dart';
 import 'package:image/image.dart' as img;
 import 'package:substation_manager/models/substation.dart';
-import 'dart:convert'; // Import for jsonEncode/jsonDecode
+// Import for jsonEncode/jsonDecode
 
 class FileService {
   Future<String> getTemporaryImagePath(String filename) async {

@@ -244,7 +244,7 @@ class _AssignAreasToSdoScreenState extends State<AssignAreasToSdoScreen> {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           subtitle: Text(
-                            '${area.state.name} ${cityNames.isNotEmpty ? '(${cityNames})' : ''}',
+                            '${area.state.name} ${cityNames.isNotEmpty ? '($cityNames)' : ''}',
                           ),
                           value: isSelected,
                           onChanged: (bool? newValue) {
