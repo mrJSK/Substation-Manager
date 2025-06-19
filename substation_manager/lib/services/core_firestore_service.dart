@@ -63,14 +63,14 @@ class CoreFirestoreService {
   }
 
   // --- UserProfile Methods ---
-  Stream<UserProfile> getUserProfileStream(String uid) {
+  // MODIFIED: Changed return type to Stream<UserProfile?> to allow null.
+  Stream<UserProfile?> getUserProfileStream(String uid) {
     return _userProfilesRef.doc(uid).snapshots().map((snapshot) {
       if (!snapshot.exists) {
-        // Return a default or throw an error if profile is not found
-        // Depending on your app logic, you might want to return UserProfile.empty() or handle differently
-        throw Exception('User profile not found for UID: $uid');
+        // Return null instead of throwing an exception.
+        return null;
       }
-      return snapshot.data()!;
+      return snapshot.data(); // snapshot.data() is nullable so return as is.
     });
   }
 
@@ -108,7 +108,7 @@ class CoreFirestoreService {
     return _userProfilesRef
         .where('role', isEqualTo: role)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()!).toList());
   }
 
   Future<List<UserProfile>> getUserProfilesByRoleOnce(String role) async {
@@ -116,7 +116,7 @@ class CoreFirestoreService {
       final querySnapshot = await _userProfilesRef
           .where('role', isEqualTo: role)
           .get();
-      return querySnapshot.docs.map((doc) => doc.data()).toList();
+      return querySnapshot.docs.map((doc) => doc.data()!).toList();
     } catch (e) {
       print('Error fetching user profiles by role: $e');
       rethrow;

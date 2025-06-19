@@ -5,40 +5,17 @@ import 'package:flutter/services.dart'
     show rootBundle; // Required for rootBundle to load assets
 import 'package:substation_manager/screens/splash_screen.dart';
 import 'package:substation_manager/services/local_database_service.dart';
-import 'package:substation_manager/models/area.dart'; // Import StateModel and CityModel
+import 'package:substation_manager/screens/connectivity_wrapper.dart'; // Added back
+import 'package:substation_manager/firebase_options.dart'; // Assuming this is needed for Firebase.initializeApp if done here
+import 'package:firebase_core/firebase_core.dart'; // Added back for Firebase.initializeApp
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final localDb = LocalDatabaseService();
-  await localDb.initializeDatabase();
-
-  // --- Pre-populate States and Cities from SQL asset files ---
-  // In lib/main.dart, inside main() function
-  try {
-    final String statesSqlContent = await rootBundle.loadString(
-      'state_sql_command.txt',
-    );
-    final String citiesSqlContent = await rootBundle.loadString(
-      'city_sql_command.txt',
-    );
-
-    // Parse SQL content into Dart objects using LocalDatabaseService's methods
-    final List<StateModel> initialStatesData =
-        await LocalDatabaseService.parseStatesSql(statesSqlContent);
-    final List<CityModel> initialCitiesData =
-        await LocalDatabaseService.parseCitiesSql(citiesSqlContent);
-
-    // Pre-populate the local database
-    await localDb.prePopulateStates(initialStatesData);
-    await localDb.prePopulateCities(initialCitiesData);
-
-    print('States and Cities pre-populated from SQL asset files.');
-  } catch (e) {
-    print('Error pre-populating states and cities from assets: $e');
-    // Handle error, e.g., show a user-facing message or retry logic
-  }
-  // --- End Pre-population ---
+  // IMPORTANT: The LocalDatabaseService initialization and pre-population
+  // have been removed from main.dart. This was causing UI blocking before the app even starts.
+  // This logic is now handled more appropriately within the SplashScreen itself,
+  // allowing the splash screen to provide visual feedback during the loading process.
 
   runApp(const MyApp());
 }
@@ -169,7 +146,8 @@ class MyApp extends StatelessWidget {
           unselectedLabelStyle: const TextStyle(fontFamily: 'Roboto'),
         ),
       ),
-      home: const SplashScreen(),
+      // Wrapped SplashScreen with ConnectivityWrapper as per your original code
+      home: ConnectivityWrapper(child: const SplashScreen()),
       routes: {
         // Routes will be defined as needed with screen development
       },

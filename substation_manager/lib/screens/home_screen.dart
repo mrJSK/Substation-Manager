@@ -58,10 +58,14 @@ class HomeScreenState extends State<HomeScreen> {
         if (mounted) {
           setState(() {
             _currentUserProfile = profile;
-            _isProfileLoading = false;
+            _isProfileLoading = false; // Set loading to false regardless
             if (_currentUserProfile != null) {
               // Load assigned areas/substations based on the fetched profile
               _loadAssignedData(_currentUserProfile!);
+            } else {
+              // If profile is null (not found), navigate to sign in.
+              // This handles the case where getUserProfileStream returns null.
+              _navigateToSignIn();
             }
           });
         }
@@ -237,10 +241,13 @@ class HomeScreenState extends State<HomeScreen> {
     final currentUserProfile = _currentUserProfile;
 
     if (currentUserProfile == null) {
-      // If profile is null after loading, user is not authenticated or not found.
-      // This should ideally be handled by an auth state listener higher up,
-      // but as a fallback, ensure we don't proceed without a profile.
-      return const SignInScreen();
+      // If profile is null after loading, it means the user's Firestore profile
+      // does not exist or could not be fetched.
+      // This path will now be taken if CoreFirestoreService.getUserProfileStream returns null.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigateToSignIn(); // Force sign out and go to sign in screen
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     // Check if status is explicitly 'rejected' or 'pending' and redirect
