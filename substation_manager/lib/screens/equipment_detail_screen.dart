@@ -103,7 +103,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen> {
         orElse: () => throw Exception('No matching template found'),
       );
 
-      _equipmentTemplate?.customFields.forEach((field) {
+      _equipmentTemplate?.equipmentCustomFields.forEach((field) {
         final fieldName = field['name'] as String;
         final dataType = field['dataType'] as String;
         final currentValue = widget.equipment.details[fieldName];
@@ -153,7 +153,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen> {
       String newPhaseConfiguration = _phaseConfiguration ?? 'Single Unit';
 
       Map<String, dynamic> updatedDetails = {};
-      _equipmentTemplate?.customFields.forEach((field) {
+      _equipmentTemplate?.equipmentCustomFields.forEach((field) {
         final fieldName = field['name'] as String;
         final dataType = field['dataType'] as String;
 
@@ -454,7 +454,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen> {
               ),
               const SizedBox(height: 20),
 
-              ..._equipmentTemplate!.customFields.map((field) {
+              ..._equipmentTemplate!.equipmentCustomFields.map((field) {
                 final String fieldName = field['name'] as String;
                 final String dataType = field['dataType'] as String;
                 final bool isMandatory = field['isMandatory'] as bool;
