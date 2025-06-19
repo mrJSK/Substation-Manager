@@ -71,10 +71,9 @@ class _RealTimeTasksScreenState extends State<RealTimeTasksScreen> {
     try {
       _equipmentSubscription?.cancel();
       _equipmentSubscription = _equipmentService
-          .getEquipmentStream(
-            substationId: user.assignedSubstationIds.isNotEmpty
-                ? user.assignedSubstationIds.first
-                : null,
+          .getEquipmentForSubstationIdsStream(
+            // Changed method name
+            user.assignedSubstationIds, // Pass the list of substation IDs
           )
           .listen((equipment) {
             if (mounted) {

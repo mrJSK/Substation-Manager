@@ -136,7 +136,8 @@ class _SldSelectionScreenState extends State<SldSelectionScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => SubstationSldBuilderScreen(
+          builder: (context) => SldBuilderScreen(
+            // Corrected class name
             substation: _selectedSubstation!,
             bay: _selectedBay!,
           ),
