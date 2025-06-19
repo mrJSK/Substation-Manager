@@ -66,6 +66,8 @@ class CoreFirestoreService {
   Stream<UserProfile> getUserProfileStream(String uid) {
     return _userProfilesRef.doc(uid).snapshots().map((snapshot) {
       if (!snapshot.exists) {
+        // Return a default or throw an error if profile is not found
+        // Depending on your app logic, you might want to return UserProfile.empty() or handle differently
         throw Exception('User profile not found for UID: $uid');
       }
       return snapshot.data()!;
@@ -166,10 +168,11 @@ class CoreFirestoreService {
   }
 
   // Get areas assigned to an SDO
-  Future<List<Area>> getAssignedAreasForSdo(String sdoId) async {
+  Future<List<Area>> getAssignedAreasForSdo(String sdoUid) async {
     try {
-      final userProfile = await getUserProfileOnce(sdoId);
+      final userProfile = await getUserProfileOnce(sdoUid);
       if (userProfile != null && userProfile.assignedAreaIds.isNotEmpty) {
+        // Use .isNotEmpty on List<String>
         final querySnapshot = await _areasRef
             .where(FieldPath.documentId, whereIn: userProfile.assignedAreaIds)
             .get();
@@ -177,7 +180,7 @@ class CoreFirestoreService {
       }
       return [];
     } catch (e) {
-      print('Error fetching assigned areas for SDO $sdoId: $e');
+      print('Error fetching assigned areas for SDO $sdoUid: $e');
       rethrow;
     }
   }
@@ -248,10 +251,11 @@ class CoreFirestoreService {
   }
 
   // Get substations assigned to a JE
-  Future<List<Substation>> getAssignedSubstationsForJe(String jeId) async {
+  Future<List<Substation>> getAssignedSubstationsForJe(String jeUid) async {
     try {
-      final userProfile = await getUserProfileOnce(jeId);
+      final userProfile = await getUserProfileOnce(jeUid);
       if (userProfile != null && userProfile.assignedSubstationIds.isNotEmpty) {
+        // Use .isNotEmpty on List<String>
         final querySnapshot = await _substationsRef
             .where(
               FieldPath.documentId,
@@ -262,7 +266,7 @@ class CoreFirestoreService {
       }
       return [];
     } catch (e) {
-      print('Error fetching assigned substations for JE $jeId: $e');
+      print('Error fetching assigned substations for JE $jeUid: $e');
       rethrow;
     }
   }

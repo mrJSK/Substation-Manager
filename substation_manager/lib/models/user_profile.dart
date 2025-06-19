@@ -3,30 +3,27 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserProfile {
-  final String
-  uid; // Renamed 'id' to 'uid' to match CoreFirestoreService expectation
+  final String uid; // Unique User ID (renamed from 'id')
   final String email;
   String? role;
-  final String?
-  displayName; // Corresponds to 'name' in previous discussion, check usage.
+  final String? displayName;
   final String? mobile;
   String status;
   List<String> assignedSubstationIds;
   List<String> assignedAreaIds;
 
   UserProfile({
-    required this.uid, // Changed from id to uid
+    required this.uid,
     required this.email,
     this.role,
     this.displayName,
     this.mobile,
-    this.status = 'pending',
+    this.status = 'pending', // Default status for new users
     this.assignedSubstationIds = const [],
     this.assignedAreaIds = const [],
   });
 
   // Factory constructor to create a UserProfile from a Firestore DocumentSnapshot
-  // This is what CoreFirestoreService expects for .withConverter
   factory UserProfile.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> snapshot, [
     SnapshotOptions? options,
@@ -35,18 +32,15 @@ class UserProfile {
     if (data == null) {
       throw StateError('missing data for userProfileId: ${snapshot.id}');
     }
-    // Call your existing fromMap method, ensuring 'id' field is mapped to 'uid'
-    // Also, ensure that the document ID (snapshot.id) is used as the uid.
-    return UserProfile.fromMap({
-      ...data, // Spread existing data
-      'id': snapshot.id, // Explicitly use snapshot.id as 'id' for fromMap
-    });
+    // Call the fromMap method, ensuring 'id' field is mapped to 'uid'.
+    // Firestore document ID (snapshot.id) is used as the 'id' for fromMap.
+    return UserProfile.fromMap({...data, 'id': snapshot.id});
   }
 
-  // Your existing fromMap method (remains the same)
+  // Factory method to create a UserProfile from a general Map (e.g., from SharedPreferences or direct Firestore data)
   factory UserProfile.fromMap(Map<String, dynamic> map) {
     return UserProfile(
-      uid: map['id'] as String, // Map 'id' from the map to 'uid'
+      uid: map['id'] as String, // Map 'id' from the map to 'uid' property
       email: map['email'] as String,
       role: map['role'] as String?,
       displayName: map['displayName'] as String?,
@@ -59,21 +53,16 @@ class UserProfile {
     );
   }
 
-  // Method to convert UserProfile to a Map for Firestore
-  // This is what CoreFirestoreService expects for .withConverter
+  // Method to convert UserProfile to a Map for Firestore (used by .withConverter)
   Map<String, dynamic> toFirestore() {
-    // Call your existing toMap method
-    // Firestore uses the document ID for the uid, so 'uid' field itself
-    // is often not stored within the document's map, but rather as the doc ID.
-    // However, if you wish to store it for redundancy or specific queries, you can.
-    // For .withConverter, it mainly needs the map representation of fields.
-    return toMap();
+    return toMap(); // Simply delegate to toMap()
   }
 
-  // Your existing toMap method (remains the same)
+  // Method to convert UserProfile to a general Map (e.g., for caching in SharedPreferences)
   Map<String, dynamic> toMap() {
     return {
-      // 'id': uid, // 'id' from the map will now be 'uid'
+      'id':
+          uid, // Include uid in the map when converting to map, for fromMap compatibility
       'email': email,
       'role': role,
       'displayName': displayName,
@@ -85,7 +74,7 @@ class UserProfile {
   }
 
   UserProfile copyWith({
-    String? uid, // Changed from id to uid
+    String? uid,
     String? email,
     String? role,
     String? displayName,
@@ -95,7 +84,7 @@ class UserProfile {
     List<String>? assignedAreaIds,
   }) {
     return UserProfile(
-      uid: uid ?? this.uid, // Changed from id to uid
+      uid: uid ?? this.uid,
       email: email ?? this.email,
       role: role ?? this.role,
       displayName: displayName ?? this.displayName,

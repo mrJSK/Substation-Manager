@@ -118,7 +118,7 @@ class _AssignSubstationsToUserScreenState
     List<String> substationsToAdd = _selectedSubstationIds
         .difference(Set.from(widget.userProfile.assignedSubstationIds))
         .toList();
-    List<String> substationsToRemove =
+    List substationsToRemove =
         Set.from(widget.userProfile.assignedSubstationIds)
             .difference(_selectedSubstationIds)
             .toList(); // No need for .cast<String>()
@@ -145,7 +145,7 @@ class _AssignSubstationsToUserScreenState
       if (substationsToRemove.isNotEmpty) {
         await _authService.unassignSubstationsFromUser(
           widget.userProfile.uid, // Use uid
-          substationsToRemove,
+          substationsToRemove.cast<String>(),
         );
       }
       if (mounted) {

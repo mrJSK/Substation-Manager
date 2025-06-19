@@ -86,7 +86,7 @@ class _RealTimeTasksScreenState extends State<RealTimeTasksScreen> {
       // SSO only sees tasks assigned to them
       if (user.role == 'SSO') {
         _tasksSubscription?.cancel();
-        _tasksSubscription = _taskService.streamTasksForSso(user.id).listen((
+        _tasksSubscription = _taskService.streamTasksForSso(user.uid).listen((
           tasks,
         ) {
           if (mounted) {
@@ -97,7 +97,7 @@ class _RealTimeTasksScreenState extends State<RealTimeTasksScreen> {
         _dailyReadingsSubscription?.cancel();
         _dailyReadingsSubscription = _dailyReadingService
             .getDailyReadingsForSsoAndDateRange(
-              user.id,
+              user.uid,
               DateTime.now().subtract(const Duration(days: 7)), // Last 7 days
               DateTime.now(),
             )

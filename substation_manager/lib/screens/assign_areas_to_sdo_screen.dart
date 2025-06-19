@@ -110,13 +110,18 @@ class _AssignAreasToSdoScreenState extends State<AssignAreasToSdoScreen> {
   }
 
   Future<void> _saveAssignments() async {
-    // Use widget.sdo.assignedAreaIds, which is now of type List<String>
-    List<String> areasToAdd = _selectedAreaIds
-        .difference(Set.from(widget.sdo.assignedAreaIds))
-        .toList();
-    List<String> areasToRemove = Set.from(
+    // Explicitly convert assignedAreaIds to a Set<String>
+    final Set<String> currentAssignedAreaIds = Set<String>.from(
       widget.sdo.assignedAreaIds,
-    ).difference(_selectedAreaIds).toList(); // No need for .cast<String>()
+    );
+
+    List<String> areasToAdd = _selectedAreaIds
+        .difference(currentAssignedAreaIds) // Use the explicitly typed set
+        .toList();
+    List<String> areasToRemove =
+        currentAssignedAreaIds // Use the explicitly typed set
+            .difference(_selectedAreaIds)
+            .toList();
 
     if (areasToAdd.isEmpty && areasToRemove.isEmpty) {
       if (mounted) {
@@ -239,7 +244,7 @@ class _AssignAreasToSdoScreenState extends State<AssignAreasToSdoScreen> {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           subtitle: Text(
-                            '${area.state.name} ${cityNames.isNotEmpty ? '($cityNames)' : ''}',
+                            '${area.state.name} ${cityNames.isNotEmpty ? '(${cityNames})' : ''}',
                           ),
                           value: isSelected,
                           onChanged: (bool? newValue) {

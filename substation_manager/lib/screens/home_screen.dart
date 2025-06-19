@@ -44,6 +44,12 @@ class HomeScreenState extends State<HomeScreen> {
     _loadUserProfile();
   }
 
+  @override
+  void dispose() {
+    // You might want to cancel subscriptions if they are managed here and not in the service itself
+    super.dispose();
+  }
+
   Future<void> _loadUserProfile() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -87,12 +93,15 @@ class HomeScreenState extends State<HomeScreen> {
         _assignedAreas = await _coreFirestoreService.getAreasOnce();
         _assignedSubstations = await _coreFirestoreService.getSubstationsOnce();
       } else if (profile.role == 'SDO') {
+        // Use profile.uid for getting assigned areas
         _assignedAreas = await _coreFirestoreService.getAssignedAreasForSdo(
           profile.uid,
         );
         _assignedSubstations = await _coreFirestoreService
             .getSubstationsByAreaIds(_assignedAreas.map((e) => e.id).toList());
-      } else if (profile.role == 'JE') {
+      } else if (profile.role == 'JE' || profile.role == 'SSO') {
+        // SSO also needs assigned substations for their tasks
+        // Use profile.uid for getting assigned substations
         _assignedSubstations = await _coreFirestoreService
             .getAssignedSubstationsForJe(profile.uid);
         // Determine areas based on assigned substations, if needed for display
@@ -166,7 +175,11 @@ class HomeScreenState extends State<HomeScreen> {
     // Corrected class name capitalization
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const AssignAreasToSdoScreen()),
+      MaterialPageRoute(
+        builder: (context) => AssignAreasToSdoScreen(
+          sdo: _currentUserProfile!, // Pass the current user profile as 'sdo'
+        ),
+      ),
     );
   }
 
@@ -176,7 +189,8 @@ class HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const AssignSubstationsToUserScreen(),
+        builder: (context) =>
+            AssignSubstationsToUserScreen(userProfile: _currentUserProfile!),
       ),
     );
   }
@@ -207,7 +221,10 @@ class HomeScreenState extends State<HomeScreen> {
     Navigator.pop(context); // Close the drawer
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const ExportScreen()),
+      MaterialPageRoute(
+        builder: (context) =>
+            ExportScreen(currentUserProfile: _currentUserProfile!),
+      ),
     );
   }
 
@@ -243,7 +260,7 @@ class HomeScreenState extends State<HomeScreen> {
     }
 
     // Determine the content for the body based on the selected index
-    Widget buildBodyContent() {
+    Widget _buildBodyContent() {
       switch (_selectedIndex) {
         case 0:
           // Dashboard tab now takes currentUserProfile directly
@@ -429,7 +446,7 @@ class HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      body: buildBodyContent(),
+      body: _buildBodyContent(),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(

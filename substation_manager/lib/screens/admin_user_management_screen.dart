@@ -218,15 +218,17 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     );
   }
 
-  Future<void> _updateUserRole(String userId, String? newRole) async {
+  Future<void> _updateUserRole(String uid, String? newRole) async {
+    // Changed userId to uid
     try {
-      await _authService.updateUserRole(userId, newRole);
+      await _authService.updateUserRole(uid, newRole);
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<void> _updateUserStatus(String userId, String newStatus) async {
+  Future<void> _updateUserStatus(String uid, String newStatus) async {
+    // Changed userId to uid
     try {
       if (newStatus == 'rejected') {
         final bool? confirmDelete = await showDialog<bool>(
@@ -235,8 +237,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             return AlertDialog(
               title: const Text('Confirm Rejection and Deletion'),
               content: Text(
-                // Use user.uid instead of user.id
-                'Are you sure you want to REJECT and DELETE this user\'s profile (${_allUsers.firstWhere((u) => u.uid == userId).email})? This action is irreversible.',
+                'Are you sure you want to REJECT and DELETE this user\'s profile (${_allUsers.firstWhere((u) => u.uid == uid).email})? This action is irreversible.', // Use uid for lookup
               ),
               actions: <Widget>[
                 TextButton(
@@ -256,7 +257,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
         );
 
         if (confirmDelete == true) {
-          await _authService.deleteUserProfile(userId);
+          await _authService.deleteUserProfile(uid); // Use uid
           if (mounted) {
             SnackBarUtils.showSnackBar(
               context,
@@ -274,7 +275,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
           throw Exception('Rejection/deletion cancelled.');
         }
       } else {
-        await _authService.updateUserStatus(userId, newStatus);
+        await _authService.updateUserStatus(uid, newStatus); // Use uid
         if (mounted) {
           SnackBarUtils.showSnackBar(
             context,
@@ -300,13 +301,12 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     }
 
     if (latestUser == null) {
-      if (mounted) {
+      if (mounted)
         SnackBarUtils.showSnackBar(
           context,
           'User not found or deleted.',
           isError: true,
         );
-      }
       return;
     }
 
@@ -360,10 +360,14 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     ),
                     items: <DropdownMenuItem<String?>>[
                       const DropdownMenuItem(value: null, child: Text('None')),
-                      ...['Admin', 'SDO', 'JE', 'SSO'].map(
-                        (role) =>
-                            DropdownMenuItem(value: role, child: Text(role)),
-                      ),
+                      ...['Admin', 'SDO', 'JE', 'SSO']
+                          .map(
+                            (role) => DropdownMenuItem(
+                              value: role,
+                              child: Text(role),
+                            ),
+                          )
+                          .toList(),
                     ],
                     onChanged: (value) {
                       setModalState(() {
@@ -410,7 +414,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             if (currentMobile != user.mobile) {
                               // Here 'user' refers to the original UserProfile passed to modal
                               await FirebaseFirestore.instance
-                                  .collection('userProfiles')
+                                  .collection(
+                                    'user_profiles',
+                                  ) // Consistent collection name
                                   .doc(latestUser!.uid) // Use uid here
                                   .update({'mobile': currentMobile});
                               await _authService.getCurrentUserProfile(

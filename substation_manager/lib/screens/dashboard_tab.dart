@@ -199,13 +199,13 @@ class _DashboardTabState extends State<DashboardTab> {
             .where(
               (t) =>
                   t.substationId == ssoAssignedSubstationId &&
-                  t.assignedToUserId == currentUser.id,
+                  t.assignedToUserId == currentUser.uid,
             )
             .toList();
         relevantDailyReadings = _allDailyReadings
             .where(
               (dr) =>
-                  dr.recordedByUserId == currentUser.id &&
+                  dr.recordedByUserId == currentUser.uid &&
                   dr.substationId == ssoAssignedSubstationId,
             )
             .toList();
@@ -252,7 +252,7 @@ class _DashboardTabState extends State<DashboardTab> {
         Set<String> workingSubsToday = {};
 
         // Loop through tasks assigned to this JE/SSO
-        _allTasks.where((task) => task.assignedToUserId == user.id).forEach((
+        _allTasks.where((task) => task.assignedToUserId == user.uid).forEach((
           task,
         ) {
           final Task currentDayTaskStatus =
@@ -268,7 +268,7 @@ class _DashboardTabState extends State<DashboardTab> {
         completedSubstations = completedSubsToday.length;
         workingPendingSubstations = workingSubsToday.length;
 
-        summaries[user.id] = UserProgressSummary(
+        summaries[user.uid] = UserProgressSummary(
           user: user,
           substationsAssigned: assignedSubstations,
           substationsCompleted: completedSubstations,
@@ -517,7 +517,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
                       final summary =
                           _userProgressSummaries[user
-                              .id]; // Access the calculated summary
+                              .uid]; // Access the calculated summary
 
                       return Card(
                         margin: const EdgeInsets.symmetric(
