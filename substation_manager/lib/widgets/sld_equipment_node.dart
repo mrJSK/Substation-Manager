@@ -75,6 +75,11 @@ class SldEquipmentNode extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
+        // Add debug print to confirm tap is registered
+        print(
+          'DEBUG: Equipment ${equipment.name} tapped. Connection start equipment: ${sldState.connectionStartEquipment?.name}',
+        ); //
+
         if (sldState.connectionStartEquipment != null) {
           // If in connection mode, this tap is to complete the connection
           final startEq = sldState.connectionStartEquipment!;
@@ -85,6 +90,7 @@ class SldEquipmentNode extends StatelessWidget {
               isError: true,
             );
             sldState.setConnectionStartEquipment(null);
+            // Return early to consume the event
             return;
           }
 
@@ -103,6 +109,7 @@ class SldEquipmentNode extends StatelessWidget {
               isError: true,
             );
             sldState.setConnectionStartEquipment(null);
+            // Return early to consume the event
             return;
           }
 
@@ -124,9 +131,17 @@ class SldEquipmentNode extends StatelessWidget {
           // Normal selection mode
           sldState.selectEquipment(equipment);
         }
+        // Return early to consume the event for normal taps as well
+        return;
       },
       onDoubleTap: () => onDoubleTap(equipment),
-      onLongPress: () => onLongPress(equipment),
+      onLongPress: () {
+        // Add debug print to confirm long-press is registered
+        print('DEBUG: Equipment ${equipment.name} long-pressed.'); //
+        onLongPress(equipment);
+        // Return early to consume the event
+        return;
+      },
       onPanStart: (details) {
         sldState.setIsDragging(true);
         sldState.selectEquipment(equipment);

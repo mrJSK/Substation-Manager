@@ -12,10 +12,55 @@ import 'package:substation_manager/utils/snackbar_utils.dart';
 import 'package:substation_manager/state/sld_state.dart';
 import 'package:uuid/uuid.dart';
 
-// --- Functions to show Modals ---
+// Helper to get IconData for equipment type
+IconData _getIconForEquipmentType(String type) {
+  switch (type.toLowerCase()) {
+    case 'power transformer':
+      return Icons.power;
+    case 'circuit breaker':
+      return Icons.flash_on;
+    case 'isolator':
+      return Icons.flip_to_front;
+    case 'current transformer (ct)':
+    case 'voltage transformer (vt/pt)':
+      return Icons.bolt;
+    case 'busbar':
+      return Icons.horizontal_rule;
+    case 'lightning arrester (la)':
+      return Icons.shield;
+    case 'wave trap':
+      return Icons.waves;
+    case 'shunt reactor':
+      return Icons.device_thermostat;
+    case 'capacitor bank':
+      return Icons.battery_charging_full;
+    case 'line':
+      return Icons.linear_scale;
+    case 'control panel':
+      return Icons.settings_remote;
+    case 'relay panel':
+      return Icons.vpn_key;
+    case 'battery bank':
+      return Icons.battery_full;
+    case 'ac/dc distribution board':
+      return Icons.dashboard;
+    case 'earthing system':
+      return Icons.public;
+    case 'energy meter':
+      return Icons.electric_meter;
+    case 'auxiliary transformer':
+      return Icons.power_input;
+    default:
+      return Icons.category;
+  }
+}
 
-// Show Add Element Modal
-Future<void> showAddElementModal(BuildContext context) async {
+// Global function to show the add element modal
+Future<void> showAddElementModal(
+  BuildContext context,
+  List<MasterEquipmentTemplate>
+  availableTemplates, // Ensure this parameter is present
+) async {
   final sldState = context.read<SldState>();
   sldState.setSelectedTemplateInModal(null);
   sldState.setSelectedEquipmentInModal(null);
@@ -24,12 +69,10 @@ Future<void> showAddElementModal(BuildContext context) async {
     context: context,
     isScrollControlled: true,
     builder: (modalContext) {
-      // Changed parameter name to modalContext to avoid conflict with inner build methods
       return SizedBox(
         height: MediaQuery.of(modalContext).size.height * 0.9,
         child: Consumer<SldState>(
           builder: (consumerContext, modalSldState, child) {
-            // Changed parameter name to consumerContext
             final bool showTemplateProperties =
                 modalSldState.selectedTemplateInModal != null;
 
@@ -59,12 +102,12 @@ Future<void> showAddElementModal(BuildContext context) async {
                   Expanded(
                     child: showTemplateProperties
                         ? _buildPropertiesSection(
-                            consumerContext, // Pass consumerContext
+                            consumerContext,
                             modalSldState,
                             Theme.of(consumerContext).colorScheme,
                           )
                         : _buildEquipmentTemplateSelectionSection(
-                            consumerContext, // Pass consumerContext
+                            consumerContext,
                             modalSldState,
                             Theme.of(consumerContext).colorScheme,
                           ),
@@ -92,12 +135,10 @@ Future<void> showEditPropertiesModal(
     context: context,
     isScrollControlled: true,
     builder: (modalContext) {
-      // Changed parameter name to modalContext
       return SizedBox(
         height: MediaQuery.of(modalContext).size.height * 0.9,
         child: Consumer<SldState>(
           builder: (consumerContext, modalSldState, child) {
-            // Changed parameter name to consumerContext
             if (modalSldState.selectedEquipmentInModal == null) {
               return const Center(
                 child: Text('No equipment selected for editing.'),
@@ -124,7 +165,7 @@ Future<void> showEditPropertiesModal(
                   const SizedBox(height: 10),
                   Expanded(
                     child: _buildPropertiesSection(
-                      consumerContext, // Pass consumerContext
+                      consumerContext,
                       modalSldState,
                       Theme.of(consumerContext).colorScheme,
                     ),
@@ -141,7 +182,7 @@ Future<void> showEditPropertiesModal(
 
 // Show Add Custom Field Dialog
 Future<Map<String, dynamic>?> _showAddCustomFieldDialog(
-  BuildContext context, // Now explicitly takes BuildContext
+  BuildContext context,
 ) async {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController nameController = TextEditingController();
@@ -160,10 +201,8 @@ Future<Map<String, dynamic>?> _showAddCustomFieldDialog(
   return await showDialog<Map<String, dynamic>>(
     context: context,
     builder: (dialogContext) {
-      // Changed parameter name to dialogContext
       return StatefulBuilder(
         builder: (statefulContext, setDialogState) {
-          // Changed parameter name to statefulContext
           return AlertDialog(
             title: const Text('Define New Custom Field'),
             content: Form(
@@ -274,10 +313,17 @@ Future<Map<String, dynamic>?> _showAddCustomFieldDialog(
 // --- Helper Widgets for Modals ---
 
 Widget _buildEquipmentTemplateSelectionSection(
-  BuildContext context, // Now explicitly takes BuildContext
+  BuildContext context,
   SldState sldState,
   ColorScheme colorScheme,
 ) {
+  print(
+    'DEBUG: _buildEquipmentTemplateSelectionSection rebuilt. SldState ID: ${sldState.debugId}',
+  );
+  print(
+    'DEBUG: Modal - isLoadingTemplates: ${sldState.isLoadingTemplates}, availableTemplates count: ${sldState.availableTemplates.length}',
+  );
+
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -291,45 +337,68 @@ Widget _buildEquipmentTemplateSelectionSection(
       sldState.isLoadingTemplates
           ? const Center(child: CircularProgressIndicator())
           : Expanded(
-              child: ListView(
-                children: [
-                  // Removed 'Add New Bay' option as per previous request to remove bay UI for now.
-                  // ListTile(
-                  //   leading: Icon(
-                  //     Icons.architecture,
-                  //     color: colorScheme.secondary,
-                  //   ),
-                  //   title: const Text('Add New Bay'),
-                  //   onTap: () async {
-                  //     Navigator.pop(context); // Close modal
-                  //     _onBayDropped(
-                  //       context,
-                  //       const Offset(100, 100),
-                  //       'Generic',
-                  //     );
-                  //   },
-                  // ),
-                  // const Divider(),
-                  ...sldState.availableTemplates.map((template) {
-                    return ListTile(
-                      leading: Icon(
-                        _getIconForEquipmentType(template.equipmentType),
-                        color: colorScheme.primary,
-                      ),
-                      title: Text(template.equipmentType),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.info_outline),
-                        onPressed: () {
-                          sldState.setSelectedTemplateInModal(template);
-                        },
-                      ),
-                      onTap: () {
-                        sldState.setSelectedTemplateInModal(template);
+              child: sldState.availableTemplates.isEmpty
+                  ? const Center(
+                      child: Text('No equipment templates available.'),
+                    )
+                  : GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                            childAspectRatio: 0.9,
+                          ),
+                      itemCount: sldState.availableTemplates.length,
+                      itemBuilder: (context, index) {
+                        final template = sldState.availableTemplates[index];
+                        return Draggable<String>(
+                          data: template.id,
+                          feedback: Material(
+                            elevation: 4.0,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _getIconForEquipmentType(
+                                      template.equipmentType,
+                                    ),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimary,
+                                    size: 30,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    template.equipmentType,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onPrimary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.5,
+                            child: _buildTemplateItem(context, template),
+                          ),
+                          child: _buildTemplateItem(context, template),
+                        );
                       },
-                    );
-                  }).toList(),
-                ],
-              ),
+                    ),
             ),
     ],
   );
@@ -632,44 +701,45 @@ Widget _buildPropertiesSection(
 }
 
 // Helper for _buildEquipmentTemplateSelectionSection and _buildPropertiesSection to get icons
-IconData _getIconForEquipmentType(String type) {
-  switch (type.toLowerCase()) {
-    case 'power transformer':
-      return Icons.power;
-    case 'circuit breaker':
-      return Icons.flash_on;
-    case 'isolator':
-      return Icons.flip_to_front;
-    case 'current transformer (ct)':
-    case 'voltage transformer (vt/pt)':
-      return Icons.bolt;
-    case 'busbar':
-      return Icons.horizontal_rule;
-    case 'lightning arrester (la)':
-      return Icons.shield;
-    case 'wave trap':
-      return Icons.waves;
-    case 'shunt reactor':
-      return Icons.device_thermostat;
-    case 'capacitor bank':
-      return Icons.battery_charging_full;
-    case 'line':
-      return Icons.linear_scale;
-    case 'control panel':
-      return Icons.settings_remote;
-    case 'relay panel':
-      return Icons.vpn_key;
-    case 'battery bank':
-      return Icons.battery_full;
-    case 'ac/dc distribution board':
-      return Icons.dashboard;
-    case 'earthing system':
-      return Icons.public;
-    case 'energy meter':
-      return Icons.electric_meter;
-    case 'auxiliary transformer':
-      return Icons.power_input;
-    default:
-      return Icons.category;
-  }
+
+Widget _buildTemplateItem(
+  BuildContext context,
+  MasterEquipmentTemplate template,
+) {
+  return GestureDetector(
+    onTap: () {
+      final sldState = context.read<SldState>();
+      sldState.setSelectedTemplateInModal(template);
+    },
+    child: Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+        ),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _getIconForEquipmentType(template.equipmentType),
+            color: Theme.of(context).colorScheme.primary,
+            size: 36,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            template.equipmentType,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    ),
+  );
 }

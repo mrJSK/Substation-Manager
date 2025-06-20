@@ -10,8 +10,12 @@ import 'package:substation_manager/models/substation.dart';
 import 'package:substation_manager/services/equipment_firestore_service.dart';
 import 'package:substation_manager/services/electrical_connection_firestore_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart'; // Added for Uuid
 
 class SldState extends ChangeNotifier {
+  // Add a unique ID for debugging instances
+  final String debugId = const Uuid().v4().substring(0, 4);
+
   final Map<String, Equipment> _placedEquipment = {};
   final List<ElectricalConnection> _connections = [];
   Equipment? _selectedEquipment;
@@ -20,6 +24,11 @@ class SldState extends ChangeNotifier {
   bool _isLoadingTemplates = false;
   List<MasterEquipmentTemplate> _availableTemplates = [];
 
+  final EquipmentFirestoreService _equipmentFirestoreService =
+      EquipmentFirestoreService();
+  final ElectricalConnectionFirestoreService _connectionFirestoreService =
+      ElectricalConnectionFirestoreService();
+
   MasterEquipmentTemplate? _selectedTemplateInModal;
   Equipment? _selectedEquipmentInModal;
 
@@ -27,7 +36,30 @@ class SldState extends ChangeNotifier {
   final List<ElectricalConnection> _initialConnectionSnapshot = [];
 
   bool _hasPendingChanges = false;
-  bool _isDragging = false; // Add this new property
+  bool _isDragging = false;
+
+  bool _isCanvasPanEnabled = true;
+  bool get isCanvasPanEnabled => _isCanvasPanEnabled;
+
+  set isCanvasPanEnabled(bool value) {
+    if (_isCanvasPanEnabled != value) {
+      _isCanvasPanEnabled = value;
+      notifyListeners();
+    }
+  }
+
+  void clearAllSldElements() {
+    _placedEquipment.clear();
+    _connections.clear();
+    _selectedEquipment = null;
+    _selectedConnection = null;
+    _connectionStartEquipment = null;
+    _hasPendingChanges = true;
+    print(
+      'DEBUG: SldState($debugId).clearAllSldElements called. _hasPendingChanges = $_hasPendingChanges',
+    );
+    notifyListeners();
+  }
 
   Map<String, Equipment> get placedEquipment => _placedEquipment;
   List<ElectricalConnection> get connections => _connections;
@@ -39,12 +71,21 @@ class SldState extends ChangeNotifier {
   MasterEquipmentTemplate? get selectedTemplateInModal =>
       _selectedTemplateInModal;
   Equipment? get selectedEquipmentInModal => _selectedEquipmentInModal;
-  bool get hasPendingChanges => _hasPendingChanges;
-  bool get isDragging => _isDragging; // Add getter for _isDragging
+  bool get hasPendingChanges {
+    print(
+      'DEBUG: SldState($debugId).hasPendingChanges getter called: $_hasPendingChanges',
+    );
+    return _hasPendingChanges;
+  }
+
+  bool get isDragging => _isDragging;
 
   void addEquipment(Equipment equipment) {
     _placedEquipment[equipment.id] = equipment;
     _hasPendingChanges = true;
+    print(
+      'DEBUG: SldState($debugId).addEquipment called. _hasPendingChanges = $_hasPendingChanges',
+    );
     notifyListeners();
   }
 
@@ -52,6 +93,9 @@ class SldState extends ChangeNotifier {
     if (_placedEquipment.containsKey(equipment.id)) {
       _placedEquipment[equipment.id] = equipment;
       _hasPendingChanges = true;
+      print(
+        'DEBUG: SldState($debugId).updateEquipment called. _hasPendingChanges = $_hasPendingChanges',
+      );
       notifyListeners();
     }
   }
@@ -63,6 +107,9 @@ class SldState extends ChangeNotifier {
         positionY: newPosition.dy,
       );
       _hasPendingChanges = true;
+      print(
+        'DEBUG: SldState($debugId).updateEquipmentPosition called. _hasPendingChanges = $_hasPendingChanges',
+      );
       notifyListeners();
     }
   }
@@ -70,18 +117,27 @@ class SldState extends ChangeNotifier {
   void removeEquipment(String id) {
     _placedEquipment.remove(id);
     _hasPendingChanges = true;
+    print(
+      'DEBUG: SldState($debugId).removeEquipment called. _hasPendingChanges = $_hasPendingChanges',
+    );
     notifyListeners();
   }
 
   void addConnection(ElectricalConnection connection) {
     _connections.add(connection);
     _hasPendingChanges = true;
+    print(
+      'DEBUG: SldState($debugId).addConnection called. _hasPendingChanges = $_hasPendingChanges',
+    );
     notifyListeners();
   }
 
   void removeConnection(String id) {
     _connections.removeWhere((conn) => conn.id == id);
     _hasPendingChanges = true;
+    print(
+      'DEBUG: SldState($debugId).removeConnection called. _hasPendingChanges = $_hasPendingChanges',
+    );
     notifyListeners();
   }
 
@@ -120,6 +176,9 @@ class SldState extends ChangeNotifier {
 
   void setAvailableTemplates(List<MasterEquipmentTemplate> templates) {
     _availableTemplates = templates;
+    print(
+      'DEBUG: SldState($debugId).setAvailableTemplates called. Templates count: ${templates.length}',
+    );
     notifyListeners();
   }
 
@@ -128,7 +187,6 @@ class SldState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Add this new method
   void setIsDragging(bool dragging) {
     _isDragging = dragging;
     notifyListeners();
@@ -157,91 +215,72 @@ class SldState extends ChangeNotifier {
   }
 
   Future<void> saveSldChanges(Substation substation) async {
-    final batch = FirebaseFirestore.instance.batch();
-    final EquipmentFirestoreService equipmentFirestoreService =
-        EquipmentFirestoreService();
-    final ElectricalConnectionFirestoreService connectionFirestoreService =
-        ElectricalConnectionFirestoreService();
-
-    for (var initialEqId in _initialEquipmentSnapshot.keys) {
-      if (!_placedEquipment.containsKey(initialEqId)) {
-        final deletedEq = _initialEquipmentSnapshot[initialEqId]!;
-        batch.delete(
-          equipmentFirestoreService.getEquipmentDocRef(
-            deletedEq.substationId,
-            deletedEq.bayId,
-            deletedEq.id,
-          ),
-        );
-      }
-    }
-
-    final Set<String> initialConnectionIds = _initialConnectionSnapshot
-        .map((c) => c.id)
-        .toSet();
-    final Set<String> currentConnectionIds = _connections
-        .map((c) => c.id)
-        .toSet();
-    for (var deletedConnId in initialConnectionIds.difference(
-      currentConnectionIds,
-    )) {
-      batch.delete(
-        connectionFirestoreService.getConnectionDocRef(deletedConnId),
-      );
-    }
-
-    for (var currentEq in _placedEquipment.values) {
-      if (!_initialEquipmentSnapshot.containsKey(currentEq.id)) {
-        batch.set(
-          equipmentFirestoreService.getEquipmentDocRef(
-            currentEq.substationId,
-            currentEq.bayId,
-            currentEq.id,
-          ),
-          currentEq.toFirestore(),
-        );
-      } else {
-        final initialEq = _initialEquipmentSnapshot[currentEq.id]!;
-        if (!mapEquals(currentEq.toFirestore(), initialEq.toFirestore())) {
-          batch.set(
-            equipmentFirestoreService.getEquipmentDocRef(
-              currentEq.substationId,
-              currentEq.bayId,
-              currentEq.id,
-            ),
-            currentEq.toFirestore(),
-            SetOptions(merge: true),
-          );
-        }
-      }
-    }
-
-    for (var currentConn in _connections) {
-      if (!initialConnectionIds.contains(currentConn.id)) {
-        batch.set(
-          connectionFirestoreService.getConnectionDocRef(currentConn.id),
-          currentConn.toFirestore(),
-        );
-      }
-    }
-
+    print(
+      'DEBUG: SldState($debugId).saveSldChanges started for substation ${substation.name}',
+    );
     try {
-      await batch.commit();
-      _initialEquipmentSnapshot.clear();
-      _placedEquipment.forEach(
-        (id, eq) => _initialEquipmentSnapshot[id] = eq.copyWith(),
+      final Map<String, Equipment> originalEquipmentMap = {
+        for (var eq
+            in await _equipmentFirestoreService.getEquipmentForSubstationOnce(
+              substation.id,
+            ))
+          eq.id: eq,
+      };
+
+      final existingConnectionIds =
+          (await _connectionFirestoreService
+                  .getConnectionsStream(substation.id)
+                  .first)
+              .map((c) => c.id)
+              .toSet();
+
+      final equipmentToAdd = _placedEquipment.values
+          .where((eq) => !originalEquipmentMap.containsKey(eq.id))
+          .toList();
+      final equipmentToUpdate = _placedEquipment.values
+          .where((eq) => originalEquipmentMap.containsKey(eq.id))
+          .toList();
+      final List<Equipment> actualEquipmentToDelete = originalEquipmentMap
+          .values
+          .where((eq) => !_placedEquipment.containsKey(eq.id))
+          .toList();
+
+      final connectionsToAdd = _connections
+          .where((conn) => !existingConnectionIds.contains(conn.id))
+          .toList();
+      final connectionsToUpdate = _connections
+          .where((conn) => existingConnectionIds.contains(conn.id))
+          .toList();
+      final connectionsToDeleteIds = existingConnectionIds
+          .where((id) => !connections.any((conn) => conn.id == id))
+          .toList();
+
+      await _equipmentFirestoreService.batchWriteEquipment(
+        substationId: substation.id,
+        equipmentToAdd: equipmentToAdd,
+        equipmentToUpdate: equipmentToUpdate,
+        equipmentToDelete: actualEquipmentToDelete,
       );
-      _initialConnectionSnapshot.clear();
-      _connections.forEach(
-        (conn) => _initialConnectionSnapshot.add(conn.copyWith()),
+      print('DEBUG: SldState($debugId).batchWriteEquipment completed.');
+
+      await _connectionFirestoreService.batchWriteConnections(
+        substationId: substation.id,
+        connectionsToAdd: connectionsToAdd,
+        connectionsToUpdate: connectionsToUpdate,
+        connectionsToDeleteIds: connectionsToDeleteIds,
       );
+      print('DEBUG: SldState($debugId).batchWriteConnections completed.');
 
       _hasPendingChanges = false;
-      notifyListeners();
-      print('SLD changes saved successfully!');
+      print(
+        'DEBUG: SldState($debugId).saveSldChanges completed successfully. _hasPendingChanges = $_hasPendingChanges',
+      );
     } catch (e) {
-      print('Error committing SLD batch: $e');
+      print('ERROR: SldState($debugId).saveSldChanges failed: $e');
+      _hasPendingChanges = true;
       rethrow;
+    } finally {
+      notifyListeners();
     }
   }
 }

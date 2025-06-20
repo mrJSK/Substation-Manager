@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 import 'package:substation_manager/models/master_equipment_template.dart';
 import 'package:substation_manager/models/equipment.dart';
 import 'package:substation_manager/models/substation.dart';
-// import 'package:substation_manager/models/bay.dart'; // REMOVED: Bay model import no longer needed for UI
 import 'package:substation_manager/models/electrical_connection.dart';
 import 'package:substation_manager/services/core_firestore_service.dart';
 import 'package:substation_manager/services/equipment_firestore_service.dart';
@@ -16,12 +15,11 @@ import 'package:substation_manager/utils/snackbar_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-// import 'package:intl/intl.dart'; // REMOVED: intl is now only used in sld_modals.dart
 
 import 'package:substation_manager/state/sld_state.dart';
 import 'package:substation_manager/widgets/sld_equipment_node.dart';
 import 'package:substation_manager/widgets/sld_connection_painter.dart';
-import 'package:substation_manager/widgets/sld_modals.dart'; // Import the new modals file
+import 'package:substation_manager/widgets/sld_modals.dart';
 
 class SldBuilderScreen extends StatefulWidget {
   final Substation substation;
@@ -44,8 +42,7 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
   StreamSubscription? _connectionsSubscription;
 
   final GlobalKey _canvasKey = GlobalKey();
-  bool _isSavingSld = false; // Moved here from SldState
-  // Offset? _dragStartPosition; // REMOVED: Not strictly needed for drag/tap differentiation in this setup
+  bool _isSavingSld = false;
 
   @override
   void initState() {
@@ -111,48 +108,27 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
   Future<void> _loadSldData() async {
     final sldState = context.read<SldState>();
 
-    // REMOVED: Bay loading as per request to remove bay UI for now
-    // _baysSubscription = _coreFirestoreService
-    //     .getBaysStream(substationId: widget.substation.id)
-    //     .listen(
-    //       (bays) {
-    //         if (mounted) {
-    //           sldState.updateAllBays(bays);
-    //         }
-    //       },
-    //       onError: (e) {
-    //         if (mounted) {
-    //           SnackBarUtils.showSnackBar(
-    //             context,
-    //             'Error loading bays: ${e.toString()}',
-    //             isError: true,
-    //           );
-    //         }
-    //       },
-    //     );
-
-    _equipmentSubscription =
-        EquipmentFirestoreService() // Using direct instance here
-            .getEquipmentForSubstationStream(widget.substation.id)
-            .listen(
-              (equipmentList) {
-                if (mounted) {
-                  sldState.updateAllEquipment(equipmentList);
-                }
-              },
-              onError: (e) {
-                if (mounted) {
-                  SnackBarUtils.showSnackBar(
-                    context,
-                    'Error loading equipment: ${e.toString()}',
-                    isError: true,
-                  );
-                }
-              },
-            );
+    _equipmentSubscription = EquipmentFirestoreService()
+        .getEquipmentForSubstationStream(widget.substation.id)
+        .listen(
+          (equipmentList) {
+            if (mounted) {
+              sldState.updateAllEquipment(equipmentList);
+            }
+          },
+          onError: (e) {
+            if (mounted) {
+              SnackBarUtils.showSnackBar(
+                context,
+                'Error loading equipment: ${e.toString()}',
+                isError: true,
+              );
+            }
+          },
+        );
 
     _connectionsSubscription = _connectionFirestoreService
-        .getConnectionsStream(substationId: widget.substation.id)
+        .getConnectionsStream(widget.substation.id)
         .listen(
           (connections) {
             if (mounted) {
@@ -182,11 +158,10 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
       orElse: () => throw Exception('Template not found'),
     );
 
-    // Assign to a default bay ID, as bay UI is removed
     final newEquipment = Equipment(
       id: _uuid.v4(),
       substationId: widget.substation.id,
-      bayId: 'default_sld_bay', // Hardcoded default bay ID
+      bayId: 'default_sld_bay',
       equipmentType: template.equipmentType,
       masterTemplateId: template.id,
       name: '${template.equipmentType} ${_uuid.v4().substring(0, 4)}',
@@ -206,9 +181,6 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
       );
     }
   }
-
-  // REMOVED: _onBayDropped as bay UI is removed
-  // void _onBayDropped(...) { ... }
 
   Future<void> _deleteSelectedItem(SldState sldState) async {
     if (sldState.selectedEquipment != null) {
@@ -240,7 +212,6 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
 
       if (confirm) {
         try {
-          // First remove any connections involving this equipment
           final connectionsToRemove = sldState.connections
               .where(
                 (conn) =>
@@ -250,11 +221,9 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
               .toList();
 
           for (final conn in connectionsToRemove) {
-            // No direct delete from Firestore here, as per batch save design
             sldState.removeConnection(conn.id);
           }
 
-          // Remove the equipment
           sldState.removeEquipment(selectedEq.id);
           sldState.selectEquipment(null);
 
@@ -313,7 +282,6 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
         }
       }
     }
-    // No bay deletion logic here as bay UI is removed
   }
 
   void _addConnectionInteraction(SldState sldState) {
@@ -336,14 +304,6 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
     }
   }
 
-  // REMOVED: _showAddElementModal and _showEditPropertiesModal are now in sld_modals.dart
-  // REMOVED: _buildEquipmentTemplateSelectionSection and _buildPropertiesSection are now in sld_modals.dart
-  // REMOVED: _showAddCustomFieldDialog is now in sld_modals.dart
-  // REMOVED: _getIconForEquipmentType and _buildEquipmentIcon are now in sld_equipment_node.dart
-
-  // REMOVED: _buildBayRepresentation as bay UI is removed
-  // Widget _buildBayRepresentation(Bay bay, ColorScheme colorScheme) { ... }
-
   @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
@@ -353,14 +313,60 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
       appBar: AppBar(
         title: Text('SLD Builder: ${widget.substation.name}'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.clear_all),
+            tooltip: 'Clear All SLD Elements',
+            onPressed: () async {
+              final bool confirm =
+                  await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Confirm Clear All'),
+                      content: const Text(
+                        'Are you sure you want to delete ALL equipment and connections from this SLD? This action will remove them locally. You must save to permanently delete them from the server.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
+                          ),
+                          child: const Text('Delete All'),
+                        ),
+                      ],
+                    ),
+                  ) ??
+                  false;
+
+              if (confirm) {
+                sldState.clearAllSldElements();
+                SnackBarUtils.showSnackBar(
+                  context,
+                  'All elements cleared locally. Remember to save your changes to permanently delete them!',
+                );
+              }
+            },
+          ),
           Consumer<SldState>(
             builder: (context, sldState, child) {
+              print(
+                'DEBUG: SAVE button builder. hasPendingChanges: ${sldState.hasPendingChanges}, _isSavingSld: $_isSavingSld',
+              );
               return TextButton(
                 onPressed: sldState.hasPendingChanges && !_isSavingSld
                     ? () async {
                         setState(() {
                           _isSavingSld = true;
                         });
+                        print(
+                          'DEBUG: SAVE button pressed. _isSavingSld set to true.',
+                        );
                         try {
                           await sldState.saveSldChanges(widget.substation);
                           if (mounted) {
@@ -377,11 +383,15 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
                               isError: true,
                             );
                           }
+                          print('ERROR: Save failed in UI: $e');
                         } finally {
                           if (mounted) {
                             setState(() {
                               _isSavingSld = false;
                             });
+                            print(
+                              'DEBUG: _isSavingSld set to false in finally block.',
+                            );
                           }
                         }
                       }
@@ -416,7 +426,6 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
               tooltip: 'Delete Selected Item',
               onPressed: () => _deleteSelectedItem(sldState),
             ),
-          // Link button now dynamic based on connection state
           IconButton(
             icon: Icon(
               Icons.link,
@@ -435,11 +444,7 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
               tooltip: 'Edit Properties',
               onPressed: () {
                 if (sldState.selectedEquipment != null) {
-                  showEditPropertiesModal(
-                    // Use the global function from sld_modals.dart
-                    context,
-                    sldState.selectedEquipment!,
-                  );
+                  showEditPropertiesModal(context, sldState.selectedEquipment!);
                 }
               },
             ),
@@ -450,157 +455,138 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
           return Row(
             children: [
               Expanded(
-                child: GestureDetector(
-                  onTapUp: (details) {
-                    if (!sldState.isDragging) {
-                      sldState.selectEquipment(null);
-                      sldState.selectConnection(null);
-                    }
-                    sldState.setIsDragging(false);
-                    sldState.setConnectionStartEquipment(
-                      null,
-                    ); // Reset connection mode on canvas tap
-                  },
-                  child: InteractiveViewer(
-                    constrained: false,
-                    boundaryMargin: const EdgeInsets.all(500),
-                    minScale: 0.1,
-                    maxScale: 4.0,
-                    child: DragTarget<String>(
-                      onAcceptWithDetails: (details) {
-                        final RenderBox renderBox =
-                            _canvasKey.currentContext?.findRenderObject()
-                                as RenderBox;
-                        final localOffset = renderBox.globalToLocal(
-                          details.offset,
-                        );
-                        _onEquipmentDropped(context, localOffset, details.data);
-                      },
-                      builder: (context, candidateData, rejectedData) {
-                        return Container(
-                          key: _canvasKey,
-                          color: Colors.grey[200],
-                          width: 3000.0,
-                          height: 2000.0,
-                          child: Stack(
-                            children: [
-                              // Render Equipment Nodes
-                              ...sldState.placedEquipment.values.map((
-                                equipment,
-                              ) {
-                                return Positioned(
-                                  left: equipment.positionX,
-                                  top: equipment.positionY,
-                                  child: SldEquipmentNode(
-                                    equipment: equipment,
-                                    colorScheme: colorScheme,
-                                    onDoubleTap: (eq) {
-                                      sldState.selectEquipment(eq);
-                                      showEditPropertiesModal(
-                                        context,
-                                        eq,
-                                      ); // Use global function
-                                    },
-                                    onLongPress: (eq) {
-                                      sldState.selectEquipment(eq);
-                                      showDialog(
-                                        context: context,
-                                        builder: (dialogContext) {
-                                          return AlertDialog(
-                                            title: Text(eq.name),
-                                            content: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                ListTile(
-                                                  leading: const Icon(
-                                                    Icons.edit,
-                                                  ),
-                                                  title: const Text(
-                                                    'Edit Properties',
-                                                  ),
-                                                  onTap: () {
-                                                    Navigator.pop(
-                                                      dialogContext,
-                                                    );
-                                                    showEditPropertiesModal(
-                                                      context,
-                                                      eq,
-                                                    ); // Use global function
-                                                  },
+                child: InteractiveViewer(
+                  constrained: false,
+                  boundaryMargin: const EdgeInsets.all(500),
+                  minScale: 0.1,
+                  maxScale: 4.0,
+                  panEnabled: sldState.isCanvasPanEnabled,
+                  child: DragTarget<String>(
+                    onAcceptWithDetails: (details) {
+                      final RenderBox renderBox =
+                          _canvasKey.currentContext?.findRenderObject()
+                              as RenderBox;
+                      final localOffset = renderBox.globalToLocal(
+                        details.offset,
+                      );
+                      _onEquipmentDropped(context, localOffset, details.data);
+                    },
+                    builder: (context, candidateData, rejectedData) {
+                      return Container(
+                        key: _canvasKey,
+                        color: Colors.grey[200],
+                        width: 3000.0,
+                        height: 2000.0,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: GestureDetector(
+                                onTap: () {
+                                  if (!sldState.isDragging) {
+                                    sldState.selectEquipment(null);
+                                    sldState.selectConnection(null);
+                                    sldState.setConnectionStartEquipment(null);
+                                  }
+                                  sldState.setIsDragging(false);
+                                },
+                                behavior: HitTestBehavior.translucent,
+                              ),
+                            ),
+                            ...sldState.placedEquipment.values.map((equipment) {
+                              return Positioned(
+                                left: equipment.positionX,
+                                top: equipment.positionY,
+                                child: SldEquipmentNode(
+                                  equipment: equipment,
+                                  colorScheme: colorScheme,
+                                  onDoubleTap: (eq) {
+                                    sldState.selectEquipment(eq);
+                                    showEditPropertiesModal(context, eq);
+                                  },
+                                  onLongPress: (eq) {
+                                    sldState.selectEquipment(eq);
+                                    showDialog(
+                                      context: context,
+                                      builder: (dialogContext) {
+                                        return AlertDialog(
+                                          title: Text(eq.name),
+                                          content: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              ListTile(
+                                                leading: const Icon(Icons.edit),
+                                                title: const Text(
+                                                  'Edit Properties',
                                                 ),
-                                                ListTile(
-                                                  leading: const Icon(
-                                                    Icons.link,
-                                                  ),
-                                                  title: const Text(
-                                                    'Create Connection',
-                                                  ),
-                                                  onTap: () {
-                                                    Navigator.pop(
-                                                      dialogContext,
-                                                    );
-                                                    sldState
-                                                        .setConnectionStartEquipment(
-                                                          eq,
-                                                        );
-                                                    SnackBarUtils.showSnackBar(
-                                                      context,
-                                                      'Selected ${eq.name}. Now tap another equipment to complete the connection.',
-                                                    );
-                                                  },
+                                                onTap: () {
+                                                  Navigator.pop(dialogContext);
+                                                  showEditPropertiesModal(
+                                                    context,
+                                                    eq,
+                                                  );
+                                                },
+                                              ),
+                                              ListTile(
+                                                leading: const Icon(Icons.link),
+                                                title: const Text(
+                                                  'Create Connection',
                                                 ),
-                                                ListTile(
-                                                  leading: const Icon(
-                                                    Icons.delete,
+                                                onTap: () {
+                                                  Navigator.pop(dialogContext);
+                                                  sldState
+                                                      .setConnectionStartEquipment(
+                                                        eq,
+                                                      );
+                                                  SnackBarUtils.showSnackBar(
+                                                    context,
+                                                    'Selected ${eq.name}. Now tap another equipment to complete the connection.',
+                                                  );
+                                                },
+                                              ),
+                                              ListTile(
+                                                leading: const Icon(
+                                                  Icons.delete,
+                                                  color: Colors.red,
+                                                ),
+                                                title: const Text(
+                                                  'Delete',
+                                                  style: TextStyle(
                                                     color: Colors.red,
                                                   ),
-                                                  title: const Text(
-                                                    'Delete',
-                                                    style: TextStyle(
-                                                      color: Colors.red,
-                                                    ),
-                                                  ),
-                                                  onTap: () {
-                                                    Navigator.pop(
-                                                      dialogContext,
-                                                    );
-                                                    _deleteSelectedItem(
-                                                      sldState,
-                                                    );
-                                                  },
                                                 ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      );
-                                    },
-                                  ),
-                                );
-                              }),
-
-                              // Render Connections
-                              CustomPaint(
-                                // Corrected: SldConnectionPainter needs to be within CustomPaint
-                                painter: SldConnectionPainter(
-                                  equipment: sldState.placedEquipment.values
-                                      .toList(),
-                                  connections: sldState.connections,
-                                  onConnectionTap: (connection) {
-                                    sldState.selectConnection(connection);
+                                                onTap: () {
+                                                  Navigator.pop(dialogContext);
+                                                  _deleteSelectedItem(sldState);
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    );
                                   },
-                                  selectedConnection:
-                                      sldState.selectedConnection,
-                                  colorScheme: colorScheme,
                                 ),
-                                size: Size
-                                    .infinite, // Corrected: CustomPaint needs a size
+                              );
+                            }),
+
+                            // Render Connections
+                            CustomPaint(
+                              painter: ConnectionPainter(
+                                equipment: sldState.placedEquipment.values
+                                    .toList(),
+                                connections: sldState.connections,
+                                onConnectionTap: (connection) {
+                                  sldState.selectConnection(connection);
+                                },
+                                selectedConnection: sldState.selectedConnection,
+                                colorScheme: colorScheme,
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                              size: Size.infinite,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -610,8 +596,10 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.miniStartFloat,
       floatingActionButton: FloatingActionButton(
-        onPressed: () =>
-            showAddElementModal(context), // Corrected: Use the global function
+        onPressed: () => showAddElementModal(
+          context,
+          sldState.availableTemplates,
+        ), // Pass available templates
         tooltip: 'Add New SLD Element',
         child: const Icon(Icons.add),
       ),

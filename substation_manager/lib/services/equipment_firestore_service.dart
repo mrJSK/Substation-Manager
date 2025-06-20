@@ -2,13 +2,14 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:substation_manager/models/equipment.dart';
-import 'package:substation_manager/services/core_firestore_service.dart';
-import 'dart:async';
-import 'package:async/async.dart';
+import 'package:substation_manager/services/core_firestore_service.dart'; // Import CoreFirestoreService to get bays
+import 'dart:async'; // Required for StreamController
+import 'package:async/async.dart'; // Import for StreamGroup - ensure this is needed, or remove if not.
 
 class EquipmentFirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final CoreFirestoreService _coreFirestoreService = CoreFirestoreService();
+  final CoreFirestoreService _coreFirestoreService =
+      CoreFirestoreService(); // To fetch bays
 
   CollectionReference<Equipment> _equipmentRef(
     String substationId,
@@ -27,6 +28,7 @@ class EquipmentFirestoreService {
   }
 
   DocumentReference<Equipment> getEquipmentDocRef(
+    // This method already existed, but explicitly mentioned here for clarity
     String substationId,
     String bayId,
     String equipmentId,
@@ -34,6 +36,7 @@ class EquipmentFirestoreService {
     return _equipmentRef(substationId, bayId).doc(equipmentId);
   }
 
+  // Add Equipment
   Future<void> addEquipment(Equipment equipment) async {
     try {
       await _equipmentRef(
@@ -46,6 +49,7 @@ class EquipmentFirestoreService {
     }
   }
 
+  // Update Equipment
   Future<void> updateEquipment(Equipment equipment) async {
     try {
       await _equipmentRef(
@@ -58,6 +62,7 @@ class EquipmentFirestoreService {
     }
   }
 
+  // Delete Equipment
   Future<void> deleteEquipment(
     String substationId,
     String bayId,
@@ -268,5 +273,61 @@ class EquipmentFirestoreService {
     };
 
     return controller.stream;
+  }
+
+  // NEW: Batch write operations for equipment (correctly implemented here)
+  Future<void> batchWriteEquipment({
+    required String
+    substationId, // Substation ID for context, but doc path uses eq.substationId and eq.bayId
+    required List<Equipment> equipmentToAdd,
+    required List<Equipment> equipmentToUpdate,
+    required List<Equipment> equipmentToDelete,
+  }) async {
+    final batch = _db.batch(); // Use the class's _db instance
+
+    // Handling additions
+    for (var eq in equipmentToAdd) {
+      if (eq.bayId.isEmpty || eq.substationId.isEmpty) {
+        print(
+          'Skipping equipment ${eq.id} for add: missing bayId or substationId. Equipment: ${eq.name}',
+        );
+        continue;
+      }
+      // Use _equipmentRef to get the correct CollectionReference with converter
+      final docRef = _equipmentRef(eq.substationId, eq.bayId).doc(eq.id);
+      batch.set(docRef, eq); // Use set with the converter
+    }
+
+    // Handling updates
+    for (var eq in equipmentToUpdate) {
+      if (eq.bayId.isEmpty || eq.substationId.isEmpty) {
+        print(
+          'Skipping equipment ${eq.id} for update: missing bayId or substationId. Equipment: ${eq.name}',
+        );
+        continue;
+      }
+      // Use _equipmentRef to get the correct CollectionReference with converter
+      final docRef = _equipmentRef(eq.substationId, eq.bayId).doc(eq.id);
+      batch.set(
+        docRef,
+        eq,
+        SetOptions(merge: true),
+      ); // Use set with merge for existing documents with converter
+    }
+
+    // Handling deletions
+    for (var eq in equipmentToDelete) {
+      if (eq.bayId.isEmpty || eq.substationId.isEmpty) {
+        print(
+          'Skipping equipment ${eq.id} for delete: missing bayId or substationId. Equipment: ${eq.name}',
+        );
+        continue;
+      }
+      // Use _equipmentRef to get the correct CollectionReference for deletion
+      final docRef = _equipmentRef(eq.substationId, eq.bayId).doc(eq.id);
+      batch.delete(docRef);
+    }
+
+    await batch.commit();
   }
 }
