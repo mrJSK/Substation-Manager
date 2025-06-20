@@ -440,7 +440,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen> {
                       _editableCustomFieldValues,
                       colorScheme,
                     );
-                  }).toList(),
+                  }),
                   const SizedBox(height: 20),
 
                   // Dynamically build Relay Instances and their custom fields
@@ -465,7 +465,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen> {
                         colorScheme,
                         'Relay',
                       );
-                    }).toList(),
+                    }),
                     const SizedBox(height: 20),
                   ],
 
@@ -492,7 +492,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen> {
                         colorScheme,
                         'Meter',
                       );
-                    }).toList(),
+                    }),
                     const SizedBox(height: 20),
                   ],
 
@@ -566,13 +566,13 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen> {
     dynamic currentValue = valuesMap[fieldName];
 
     // Validator function based on mandatory flag
-    String? Function(String?)? validator = (value) {
+    validator(value) {
       if (isMandatory && (value == null || value.trim().isEmpty)) {
         return '$fieldName is required';
       }
       // Add more specific validation based on dataType if needed
       return null;
-    };
+    }
 
     // Helper to update the value in the valuesMap
     void updateValue(dynamic newValue) {
@@ -652,7 +652,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen> {
           ),
           readOnly: true,
           decoration: InputDecoration(
-            labelText: '$fieldName',
+            labelText: fieldName,
             border: const OutlineInputBorder(),
             suffixIcon: IconButton(
               icon: Icon(Icons.calendar_today, color: colorScheme.primary),
@@ -687,7 +687,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen> {
           ),
           readOnly: true,
           decoration: InputDecoration(
-            labelText: '$fieldName',
+            labelText: fieldName,
             border: const OutlineInputBorder(),
             suffixIcon: IconButton(
               icon: Icon(Icons.access_time, color: colorScheme.primary),
@@ -775,7 +775,7 @@ class _EquipmentDetailScreenState extends State<EquipmentDetailScreen> {
                 instanceFieldValues,
                 colorScheme,
               );
-            }).toList(),
+            }),
             // No add/remove buttons here, as instances are determined by template
             // and their fields are defined by the template.
           ],

@@ -13,6 +13,8 @@ class Bay {
   final bool isIncoming;
   final int sequenceNumber;
   final String? description;
+  final double? positionX; // Added for SLD placement
+  final double? positionY; // Added for SLD placement
 
   Bay({
     String? id,
@@ -23,6 +25,8 @@ class Bay {
     this.isIncoming = false,
     required this.sequenceNumber,
     this.description,
+    this.positionX, // Added
+    this.positionY, // Added
   }) : id = id ?? const Uuid().v4();
 
   // Factory constructor from Firestore DocumentSnapshot
@@ -40,6 +44,8 @@ class Bay {
       isIncoming: data?['isIncoming'] as bool? ?? false,
       sequenceNumber: data?['sequenceNumber'] as int? ?? 0,
       description: data?['description'] as String?,
+      positionX: (data?['positionX'] as num?)?.toDouble(), // Deserialized
+      positionY: (data?['positionY'] as num?)?.toDouble(), // Deserialized
     );
   }
 
@@ -53,6 +59,8 @@ class Bay {
       'isIncoming': isIncoming,
       'sequenceNumber': sequenceNumber,
       'description': description,
+      'positionX': positionX, // Serialized
+      'positionY': positionY, // Serialized
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
@@ -68,6 +76,8 @@ class Bay {
       isIncoming: map['isIncoming'] == 1,
       sequenceNumber: map['sequenceNumber'] as int,
       description: map['description'] as String?,
+      positionX: map['positionX'] as double?, // Deserialized
+      positionY: map['positionY'] as double?, // Deserialized
     );
   }
 
@@ -82,6 +92,8 @@ class Bay {
       'isIncoming': isIncoming ? 1 : 0,
       'sequenceNumber': sequenceNumber,
       'description': description,
+      'positionX': positionX, // Serialized
+      'positionY': positionY, // Serialized
     };
   }
 
@@ -95,6 +107,8 @@ class Bay {
     bool? isIncoming,
     int? sequenceNumber,
     String? description,
+    double? positionX, // Added to copyWith
+    double? positionY, // Added to copyWith
   }) {
     return Bay(
       id: id ?? this.id,
@@ -105,6 +119,8 @@ class Bay {
       isIncoming: isIncoming ?? this.isIncoming,
       sequenceNumber: sequenceNumber ?? this.sequenceNumber,
       description: description ?? this.description,
+      positionX: positionX ?? this.positionX, // Used in copyWith
+      positionY: positionY ?? this.positionY, // Used in copyWith
     );
   }
 }

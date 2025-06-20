@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:substation_manager/models/equipment.dart';
 import 'package:substation_manager/services/core_firestore_service.dart'; // Import CoreFirestoreService to get bays
 import 'dart:async'; // Required for StreamController
+import 'package:async/async.dart'; // Import for StreamGroup
 
 class EquipmentFirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -142,17 +143,17 @@ class EquipmentFirestoreService {
     }
 
     // Use a StreamController to combine data from multiple streams
-    final _combinedEquipmentController =
+    final combinedEquipmentController =
         StreamController<List<Equipment>>.broadcast();
 
     // Map to store current equipment for each bay, to allow merging updates
-    final Map<String, Map<String, Equipment>> _bayEquipmentCache =
+    final Map<String, Map<String, Equipment>> bayEquipmentCache =
         {}; // {bayId: {equipmentId: Equipment}}
 
     // List to keep track of all active subscriptions so they can be cancelled
-    final List<StreamSubscription> _subscriptions = [];
+    final List<StreamSubscription> subscriptions = [];
 
-    Future<void> _startListening() async {
+    Future<void> startListening() async {
       // First, get all bays for the given substations (one-time fetch for bays)
       for (String subId in substationIds) {
         final bays = await _coreFirestoreService.getBaysOnce(
@@ -160,11 +161,11 @@ class EquipmentFirestoreService {
         );
         for (var bay in bays) {
           final bayId = bay.id;
-          _bayEquipmentCache[bayId] = {}; // Initialize cache for this bay
+          bayEquipmentCache[bayId] = {}; // Initialize cache for this bay
 
           // Listen to the stream of equipment for each bay
           final streamForBay = getEquipmentForBayStream(subId, bayId);
-          _subscriptions.add(
+          subscriptions.add(
             streamForBay.listen(
               (equipmentListForBay) {
                 // Update the cache for this specific bay
@@ -172,11 +173,11 @@ class EquipmentFirestoreService {
                 for (var eq in equipmentListForBay) {
                   currentBayEquipmentMap[eq.id] = eq;
                 }
-                _bayEquipmentCache[bayId] = currentBayEquipmentMap;
+                bayEquipmentCache[bayId] = currentBayEquipmentMap;
 
                 _emitAllEquipment(
-                  _combinedEquipmentController,
-                  _bayEquipmentCache,
+                  combinedEquipmentController,
+                  bayEquipmentCache,
                 );
               },
               onError: (e) {
@@ -188,24 +189,24 @@ class EquipmentFirestoreService {
         }
       }
       // Emit initial state even if no equipment streams have fired yet, but bays are known
-      _emitAllEquipment(_combinedEquipmentController, _bayEquipmentCache);
+      _emitAllEquipment(combinedEquipmentController, bayEquipmentCache);
     }
 
-    _startListening().catchError((e) {
+    startListening().catchError((e) {
       print('Error starting equipment listeners: $e');
-      _combinedEquipmentController.addError(e);
+      combinedEquipmentController.addError(e);
     });
 
     // Handle closing the stream
-    _combinedEquipmentController.onCancel = () {
-      for (var sub in _subscriptions) {
+    combinedEquipmentController.onCancel = () {
+      for (var sub in subscriptions) {
         sub.cancel();
       }
-      _subscriptions.clear();
+      subscriptions.clear();
       print('EquipmentForSubstationIdsStream: All subscriptions cancelled.');
     };
 
-    return _combinedEquipmentController.stream;
+    return combinedEquipmentController.stream;
   }
 
   // Helper to combine all equipment from the cache and add to the main controller
@@ -214,9 +215,75 @@ class EquipmentFirestoreService {
     Map<String, Map<String, Equipment>> bayEquipmentCache,
   ) {
     final List<Equipment> allEquipment = [];
-    bayEquipmentCache.values.forEach((bayMap) {
+    for (var bayMap in bayEquipmentCache.values) {
       allEquipment.addAll(bayMap.values);
-    });
+    }
     controller.add(allEquipment);
+  }
+
+  // NEW: Get a combined stream of all equipment for a *single* substation (across all its bays)
+  Stream<List<Equipment>> getEquipmentForSubstationStream(String substationId) {
+    final controller = StreamController<List<Equipment>>.broadcast();
+    final List<StreamSubscription> bayEquipmentSubscriptions = [];
+    final Map<String, Map<String, Equipment>> equipmentCache =
+        {}; // {bayId: {equipmentId: Equipment}}
+
+    // Listen to bays stream first to dynamically subscribe to equipment streams
+    final baysSubscription = _coreFirestoreService
+        .getBaysStream(substationId: substationId)
+        .listen(
+          (bays) {
+            // Cancel old equipment subscriptions
+            for (var sub in bayEquipmentSubscriptions) {
+              sub.cancel();
+            }
+            bayEquipmentSubscriptions.clear();
+            equipmentCache.clear(); // Clear cache as bays might have changed
+
+            if (bays.isEmpty) {
+              controller.add([]); // No bays, no equipment
+              return;
+            }
+
+            // Subscribe to equipment stream for each bay
+            for (var bay in bays) {
+              equipmentCache[bay.id] = {}; // Initialize cache for this bay
+
+              final equipmentStream = getEquipmentForBayStream(
+                substationId,
+                bay.id,
+              );
+              bayEquipmentSubscriptions.add(
+                equipmentStream.listen(
+                  (equipmentList) {
+                    equipmentCache[bay.id] = {
+                      for (var eq in equipmentList) eq.id: eq,
+                    };
+                    _emitAllEquipment(controller, equipmentCache);
+                  },
+                  onError: (e) {
+                    print('Error in equipment stream for bay ${bay.id}: $e');
+                    controller.addError(e);
+                  },
+                ),
+              );
+            }
+          },
+          onError: (e) {
+            print('Error in bays stream for substation $substationId: $e');
+            controller.addError(e);
+          },
+        );
+
+    controller.onCancel = () {
+      baysSubscription.cancel();
+      for (var sub in bayEquipmentSubscriptions) {
+        sub.cancel();
+      }
+      bayEquipmentSubscriptions.clear();
+      print('EquipmentForSubstationStream: All subscriptions cancelled.');
+    };
+
+    return controller.stream;
   }
 }

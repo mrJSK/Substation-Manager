@@ -7,11 +7,12 @@ import 'dart:convert'; // Import for JSON encoding/decoding
 class ElectricalConnection {
   final String id;
   final String substationId;
-  final String? bayId;
+  final String? bayId; // Optional, connection can span multiple bays
   final String fromEquipmentId;
   final String toEquipmentId;
   final String connectionType;
-  final List<Map<String, double>> points;
+  final List<Map<String, double>>
+  points; // List of {x: , y: } coordinates for drawing the path
 
   ElectricalConnection({
     String? id,

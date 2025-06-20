@@ -1,14 +1,13 @@
 // lib/screens/sld_selection_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Ensure provider is in pubspec.yaml
+import 'package:provider/provider.dart';
 import 'package:substation_manager/models/area.dart';
 import 'package:substation_manager/models/substation.dart';
-import 'package:substation_manager/models/bay.dart'; // Import Bay model
+import 'package:substation_manager/models/bay.dart'; // Keep import for model usage if needed elsewhere
 import 'package:substation_manager/services/core_firestore_service.dart';
 import 'package:substation_manager/utils/snackbar_utils.dart';
 import 'package:substation_manager/screens/substation_sld_builder_screen.dart';
-// Make sure the file 'substation_sld_builder_screen.dart' exists and exports 'SubstationSldBuilderScreen'
 
 class SldSelectionScreen extends StatefulWidget {
   const SldSelectionScreen({super.key});
@@ -21,20 +20,26 @@ class _SldSelectionScreenState extends State<SldSelectionScreen> {
   final CoreFirestoreService _coreFirestoreService = CoreFirestoreService();
   List<Area> _areas = [];
   List<Substation> _substations = [];
-  List<Bay> _bays = []; // State to hold bays
+  List<Bay> _bays =
+      []; // Keep to load bays for the selected substation in memory if needed by builder screen logic
 
   Area? _selectedArea;
   Substation? _selectedSubstation;
-  Bay? _selectedBay; // State for selected bay
 
   bool _isLoadingAreas = true;
   bool _isLoadingSubstations = false;
-  bool _isLoadingBays = false; // Loading state for bays
+  bool _isLoadingBays = false; // Still needed if you fetch all bays for info
 
   @override
   void initState() {
     super.initState();
     _loadAreas();
+  }
+
+  @override
+  void dispose() {
+    // No controllers or stream subscriptions directly here needing disposal
+    super.dispose();
   }
 
   Future<void> _loadAreas() async {
@@ -47,12 +52,10 @@ class _SldSelectionScreenState extends State<SldSelectionScreen> {
           setState(() {
             _areas = areas;
             _isLoadingAreas = false;
-            // Clear selections if areas change
             _selectedArea = null;
             _substations = [];
             _selectedSubstation = null;
             _bays = [];
-            _selectedBay = null;
           });
         }
       });
@@ -73,10 +76,9 @@ class _SldSelectionScreenState extends State<SldSelectionScreen> {
   Future<void> _loadSubstations(String areaId) async {
     setState(() {
       _isLoadingSubstations = true;
-      _substations = []; // Clear previous substations
+      _substations = [];
       _selectedSubstation = null;
-      _bays = []; // Clear bays when substation changes
-      _selectedBay = null;
+      _bays = [];
     });
     try {
       final fetchedSubstations = await _coreFirestoreService
@@ -104,8 +106,7 @@ class _SldSelectionScreenState extends State<SldSelectionScreen> {
   Future<void> _loadBays(String substationId) async {
     setState(() {
       _isLoadingBays = true;
-      _bays = []; // Clear previous bays
-      _selectedBay = null;
+      _bays = [];
     });
     try {
       final fetchedBays = await _coreFirestoreService.getBaysOnce(
@@ -132,21 +133,21 @@ class _SldSelectionScreenState extends State<SldSelectionScreen> {
   }
 
   void _navigateToSldBuilder() {
-    if (_selectedSubstation != null && _selectedBay != null) {
+    if (_selectedSubstation != null) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => SldBuilderScreen(
-            // Corrected class name
-            substation: _selectedSubstation!,
-            bay: _selectedBay!,
+          builder: (context) => ChangeNotifierProvider(
+            // <--- Add Provider here
+            create: (_) => SldState(), // Create an instance of SldState
+            child: SldBuilderScreen(substation: _selectedSubstation!),
           ),
         ),
       );
     } else {
       SnackBarUtils.showSnackBar(
         context,
-        'Please select an Area, Substation, and Bay.',
+        'Please select an Area and Substation.',
         isError: true,
       );
     }
@@ -203,9 +204,8 @@ class _SldSelectionScreenState extends State<SldSelectionScreen> {
                               setState(() {
                                 _selectedArea = newValue;
                                 _selectedSubstation = null;
-                                _substations = []; // Clear substations
-                                _selectedBay = null;
-                                _bays = []; // Clear bays
+                                _substations = [];
+                                _bays = [];
                               });
                               if (newValue != null) {
                                 _loadSubstations(newValue.id);
@@ -241,8 +241,7 @@ class _SldSelectionScreenState extends State<SldSelectionScreen> {
                                 : (Substation? newValue) {
                                     setState(() {
                                       _selectedSubstation = newValue;
-                                      _selectedBay = null;
-                                      _bays = []; // Clear bays
+                                      _bays = [];
                                     });
                                     if (newValue != null) {
                                       _loadBays(newValue.id);
@@ -250,39 +249,6 @@ class _SldSelectionScreenState extends State<SldSelectionScreen> {
                                   },
                             validator: (value) =>
                                 value == null ? 'Substation is required' : null,
-                            isExpanded: true,
-                          ),
-                    const SizedBox(height: 16),
-
-                    // Bay Dropdown
-                    _isLoadingBays
-                        ? const Center(child: CircularProgressIndicator())
-                        : DropdownButtonFormField<Bay>(
-                            value: _selectedBay,
-                            decoration: InputDecoration(
-                              labelText: 'Select Bay',
-                              border: const OutlineInputBorder(),
-                              prefixIcon: Icon(
-                                Icons.architecture,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                            hint: const Text('Select a Bay'),
-                            items: _bays.map((bay) {
-                              return DropdownMenuItem(
-                                value: bay,
-                                child: Text('${bay.name} (${bay.type})'),
-                              );
-                            }).toList(),
-                            onChanged: _selectedSubstation == null
-                                ? null
-                                : (Bay? newValue) {
-                                    setState(() {
-                                      _selectedBay = newValue;
-                                    });
-                                  },
-                            validator: (value) =>
-                                value == null ? 'Bay is required' : null,
                             isExpanded: true,
                           ),
                   ],

@@ -549,13 +549,11 @@ class _MasterEquipmentManagementScreenState
                                 ),
                                 if (template.equipmentCustomFields.isEmpty)
                                   const Text('  No equipment fields defined.'),
-                                ...template.equipmentCustomFields
-                                    .map(
-                                      (field) => Text(
-                                        ' - ${field['name']} (${field['dataType']}) ${field['isMandatory'] ? '(Mandatory)' : ''} [${field['category'] ?? 'N/A'}] ${(field['units'] as String?)?.isNotEmpty == true ? 'Units: ${field['units']}' : ''}',
-                                      ),
-                                    )
-                                    .toList(),
+                                ...template.equipmentCustomFields.map(
+                                  (field) => Text(
+                                    ' - ${field['name']} (${field['dataType']}) ${field['isMandatory'] ? '(Mandatory)' : ''} [${field['category'] ?? 'N/A'}] ${(field['units'] as String?)?.isNotEmpty == true ? 'Units: ${field['units']}' : ''}',
+                                  ),
+                                ),
                                 const SizedBox(height: 10),
 
                                 // Defined Relays display
@@ -566,35 +564,30 @@ class _MasterEquipmentManagementScreenState
                                 ),
                                 if (template.definedRelays.isEmpty)
                                   const Text('  No relays defined.'),
-                                ...template.definedRelays
-                                    .map(
-                                      (relayDef) => Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '  - ${relayDef['name']}',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
+                                ...template.definedRelays.map(
+                                  (relayDef) => Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '  - ${relayDef['name']}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if ((relayDef['fields'] as List).isEmpty)
+                                        const Text(
+                                          '    No custom fields for this relay.',
+                                        ),
+                                      ...((relayDef['fields'] as List<dynamic>))
+                                          .map(
+                                            (field) => Text(
+                                              '    - ${field['name']} (${field['dataType']}) ${field['isMandatory'] ? '(Mandatory)' : ''} [${field['category'] ?? 'N/A'}] ${(field['units'] as String?)?.isNotEmpty == true ? 'Units: ${field['units']}' : ''}',
                                             ),
                                           ),
-                                          if ((relayDef['fields'] as List)
-                                              .isEmpty)
-                                            const Text(
-                                              '    No custom fields for this relay.',
-                                            ),
-                                          ...((relayDef['fields']
-                                                  as List<dynamic>))
-                                              .map(
-                                                (field) => Text(
-                                                  '    - ${field['name']} (${field['dataType']}) ${field['isMandatory'] ? '(Mandatory)' : ''} [${field['category'] ?? 'N/A'}] ${(field['units'] as String?)?.isNotEmpty == true ? 'Units: ${field['units']}' : ''}',
-                                                ),
-                                              )
-                                              .toList(),
-                                        ],
-                                      ),
-                                    )
-                                    .toList(),
+                                    ],
+                                  ),
+                                ),
                                 const SizedBox(height: 10),
 
                                 // Defined Energy Meters display
@@ -605,35 +598,30 @@ class _MasterEquipmentManagementScreenState
                                 ),
                                 if (template.definedEnergyMeters.isEmpty)
                                   const Text('  No energy meters defined.'),
-                                ...template.definedEnergyMeters
-                                    .map(
-                                      (meterDef) => Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '  - ${meterDef['name']}',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
+                                ...template.definedEnergyMeters.map(
+                                  (meterDef) => Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '  - ${meterDef['name']}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if ((meterDef['fields'] as List).isEmpty)
+                                        const Text(
+                                          '    No custom fields for this meter.',
+                                        ),
+                                      ...((meterDef['fields'] as List<dynamic>))
+                                          .map(
+                                            (field) => Text(
+                                              '    - ${field['name']} (${field['dataType']}) ${field['isMandatory'] ? '(Mandatory)' : ''} [${field['category'] ?? 'N/A'}] ${(field['units'] as String?)?.isNotEmpty == true ? 'Units: ${field['units']}' : ''}',
                                             ),
                                           ),
-                                          if ((meterDef['fields'] as List)
-                                              .isEmpty)
-                                            const Text(
-                                              '    No custom fields for this meter.',
-                                            ),
-                                          ...((meterDef['fields']
-                                                  as List<dynamic>))
-                                              .map(
-                                                (field) => Text(
-                                                  '    - ${field['name']} (${field['dataType']}) ${field['isMandatory'] ? '(Mandatory)' : ''} [${field['category'] ?? 'N/A'}] ${(field['units'] as String?)?.isNotEmpty == true ? 'Units: ${field['units']}' : ''}',
-                                                ),
-                                              )
-                                              .toList(),
-                                        ],
-                                      ),
-                                    )
-                                    .toList(),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),

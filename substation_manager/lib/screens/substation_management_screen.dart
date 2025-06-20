@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart'; // For GPS coordinates
 import 'package:substation_manager/models/substation.dart';
 import 'package:substation_manager/models/area.dart'; // Import Area, StateModel, CityModel
+import 'package:substation_manager/models/bay.dart'; // Import Bay model
 import 'package:substation_manager/services/core_firestore_service.dart';
 import 'package:substation_manager/utils/snackbar_utils.dart';
 import 'package:uuid/uuid.dart'; // For generating IDs
@@ -555,6 +556,160 @@ class _SubstationManagementScreenState
     }
   }
 
+  // NEW: Method to show dialog for adding a new Bay
+  Future<void> _showAddBayDialog(Substation substation) async {
+    final bayFormKey = GlobalKey<FormState>();
+    final TextEditingController bayNameController = TextEditingController();
+    String? selectedBayType;
+    String? selectedVoltageLevel;
+    bool isIncoming = false;
+    final List<String> bayTypes = [
+      'Line',
+      'Transformer',
+      'Bus',
+      'Feeder',
+      'Generator',
+      'Capacitor',
+      'Reactor',
+      'Tie',
+    ];
+
+    final newBay = await showDialog<Bay>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          // Use StatefulBuilder to update dialog content
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Add New Bay to ${substation.name}'),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: bayFormKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: bayNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Bay Name',
+                        ),
+                        validator: (value) =>
+                            value!.isEmpty ? 'Bay name cannot be empty' : null,
+                      ),
+                      const SizedBox(height: 15),
+                      DropdownButtonFormField<String>(
+                        value: selectedBayType,
+                        decoration: const InputDecoration(
+                          labelText: 'Bay Type',
+                        ),
+                        items: bayTypes
+                            .map(
+                              (type) => DropdownMenuItem(
+                                value: type,
+                                child: Text(type),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (String? newValue) {
+                          setDialogState(() {
+                            selectedBayType = newValue;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? 'Please select a bay type' : null,
+                      ),
+                      const SizedBox(height: 15),
+                      DropdownButtonFormField<String>(
+                        value: selectedVoltageLevel,
+                        decoration: const InputDecoration(
+                          labelText: 'Voltage Level',
+                        ),
+                        items:
+                            _voltageLevels // Re-use substation's voltage levels
+                                .map(
+                                  (level) => DropdownMenuItem(
+                                    value: level,
+                                    child: Text(level),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged: (String? newValue) {
+                          setDialogState(() {
+                            selectedVoltageLevel = newValue;
+                          });
+                        },
+                        validator: (value) => value == null
+                            ? 'Please select a voltage level'
+                            : null,
+                      ),
+                      const SizedBox(height: 15),
+                      CheckboxListTile(
+                        title: const Text('Is Incoming Bay?'),
+                        value: isIncoming,
+                        onChanged: (bool? newValue) {
+                          setDialogState(() {
+                            isIncoming = newValue ?? false;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context), // Cancel
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (bayFormKey.currentState!.validate()) {
+                      final newBay = Bay(
+                        substationId: substation.id,
+                        name: bayNameController.text.trim(),
+                        type: selectedBayType!,
+                        voltageLevel: selectedVoltageLevel!,
+                        isIncoming: isIncoming,
+                        sequenceNumber:
+                            0, // You might want to auto-increment this
+                      );
+                      Navigator.pop(
+                        context,
+                        newBay,
+                      ); // Return the new Bay object
+                    }
+                  },
+                  child: const Text('Add Bay'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (newBay != null) {
+      try {
+        await _coreFirestoreService.addBay(newBay);
+        if (mounted) {
+          SnackBarUtils.showSnackBar(
+            context,
+            'Bay "${newBay.name}" added successfully!',
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          SnackBarUtils.showSnackBar(
+            context,
+            'Error adding bay: ${e.toString()}',
+            isError: true,
+          );
+        }
+        print('Error adding bay: $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
@@ -1006,6 +1161,8 @@ class _SubstationManagementScreenState
                                 _editSubstation(substation);
                               } else if (result == 'delete') {
                                 _deleteSubstation(substation.id);
+                              } else if (result == 'add_bay') {
+                                _showAddBayDialog(substation);
                               }
                             },
                             itemBuilder: (BuildContext context) =>
@@ -1028,6 +1185,13 @@ class _SubstationManagementScreenState
                                         'Delete',
                                         style: TextStyle(color: Colors.red),
                                       ),
+                                    ),
+                                  ),
+                                  const PopupMenuItem<String>(
+                                    value: 'add_bay',
+                                    child: ListTile(
+                                      leading: Icon(Icons.architecture),
+                                      title: Text('Add Bay'),
                                     ),
                                   ),
                                 ],
