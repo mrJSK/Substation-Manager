@@ -209,6 +209,8 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
       customFieldValues: {},
       relays: [],
       energyMeters: [],
+      symbolKey:
+          template.symbolKey, // NEW: Pass the symbolKey from the template
     );
 
     sldState.addEquipment(newEquipment);
@@ -540,6 +542,8 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
                                     name: template.equipmentType,
                                     positionX: 0,
                                     positionY: 0,
+                                    symbolKey: template
+                                        .symbolKey, // Pass symbolKey for feedback
                                   ),
                                   colorScheme: colorScheme,
                                   onDoubleTap:
@@ -562,6 +566,8 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
                                   name: template.equipmentType,
                                   positionX: 0,
                                   positionY: 0,
+                                  symbolKey: template
+                                      .symbolKey, // Pass symbolKey for childWhenDragging
                                 ),
                                 colorScheme: colorScheme,
                                 onDoubleTap: (eq) {},
@@ -582,6 +588,8 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
                                   name: template.equipmentType,
                                   positionX: 0,
                                   positionY: 0,
+                                  symbolKey: template
+                                      .symbolKey, // Pass symbolKey for actual child
                                 ),
                                 colorScheme: colorScheme,
                                 onDoubleTap:

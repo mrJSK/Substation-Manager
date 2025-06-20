@@ -53,9 +53,9 @@ class _SldEquipmentNodeState extends State<SldEquipmentNode> {
     }
   }
 
-  // Method to map equipment type string to the correct CustomPainter
-  EquipmentPainter _getEquipmentPainter(String equipmentType, Color color) {
-    switch (equipmentType) {
+  // Method to map equipment symbolKey to the correct CustomPainter
+  EquipmentPainter _getEquipmentPainter(String symbolKey, Color color) {
+    switch (symbolKey) {
       case 'Transformer':
         return TransformerIconPainter(color: color);
       case 'Busbar':
@@ -71,7 +71,7 @@ class _SldEquipmentNodeState extends State<SldEquipmentNode> {
       case 'Ground':
         return GroundIconPainter(color: color);
       default:
-        // Fallback for unknown types (e.g., if a new template type is added but no painter exists)
+        // Fallback for unknown symbol keys
         return TransformerIconPainter(color: color); // Default to transformer
     }
   }
@@ -83,6 +83,7 @@ class _SldEquipmentNodeState extends State<SldEquipmentNode> {
     final isConnectionStart =
         sldState.connectionStartEquipment?.id == widget.equipment.id;
 
+    // Use equipmentType for logical sizing, but symbolKey for visual representation
     final nodeSize = _getEquipmentSize(widget.equipment.equipmentType);
     final borderColor = isSelected
         ? widget
@@ -150,8 +151,8 @@ class _SldEquipmentNodeState extends State<SldEquipmentNode> {
           sldState.updateEquipmentPosition(
             widget.equipment.id,
             Offset(
-              widget.equipment.positionX! + details.delta.dx,
-              widget.equipment.positionY! + details.delta.dy,
+              widget.equipment.positionX + details.delta.dx,
+              widget.equipment.positionY + details.delta.dy,
             ),
           );
         }
@@ -160,16 +161,10 @@ class _SldEquipmentNodeState extends State<SldEquipmentNode> {
         sldState.setIsDragging(false);
         // Snap the equipment to the grid on pan end
         final snappedPosition = snapToGrid(
-          Offset(
-            widget.equipment.positionX ?? 0.0,
-            widget.equipment.positionY ?? 0.0,
-          ),
+          Offset(widget.equipment.positionX, widget.equipment.positionY),
         );
         if (snappedPosition !=
-            Offset(
-              widget.equipment.positionX ?? 0.0,
-              widget.equipment.positionY ?? 0.0,
-            )) {
+            Offset(widget.equipment.positionX, widget.equipment.positionY)) {
           sldState.updateEquipmentPosition(
             widget.equipment.id,
             snappedPosition,
@@ -208,9 +203,9 @@ class _SldEquipmentNodeState extends State<SldEquipmentNode> {
                   nodeSize.height * 0.8,
                 ), // Adjust size for symbol
                 painter: _getEquipmentPainter(
-                  widget.equipment.equipmentType,
+                  widget.equipment.symbolKey,
                   equipmentSymbolColor,
-                ),
+                ), // NOW USES symbolKey
               ),
               const SizedBox(height: 4),
               Text(

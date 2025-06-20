@@ -6,6 +6,15 @@ import 'package:substation_manager/services/core_firestore_service.dart';
 import 'package:substation_manager/utils/snackbar_utils.dart';
 import 'package:uuid/uuid.dart'; // For generating IDs
 
+// Import all individual equipment icon painters to get their names
+import 'package:substation_manager/equipment_icons/transformer_icon.dart';
+import 'package:substation_manager/equipment_icons/busbar_icon.dart';
+import 'package:substation_manager/equipment_icons/circuit_breaker_icon.dart';
+import 'package:substation_manager/equipment_icons/disconnector_icon.dart';
+import 'package:substation_manager/equipment_icons/ct_icon.dart';
+import 'package:substation_manager/equipment_icons/pt_icon.dart';
+import 'package:substation_manager/equipment_icons/ground_icon.dart';
+
 // Define an enum for different views within the screen
 enum MasterEquipmentViewMode {
   list, // Shows the list of existing templates
@@ -25,6 +34,7 @@ class _MasterEquipmentManagementScreenState
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _equipmentTypeController =
       TextEditingController();
+  String _selectedSymbolKey = 'Transformer'; // NEW: State for selected symbol
 
   // Custom fields for the main equipment type
   List<Map<String, dynamic>> _equipmentCustomFields = [];
@@ -62,6 +72,53 @@ class _MasterEquipmentManagementScreenState
     'Specification',
     'Daily Reading',
   ];
+
+  // NEW: List of available symbol keys/names from your icon files
+  final List<String> _availableSymbolKeys = const [
+    'Transformer',
+    'Busbar',
+    'Circuit Breaker',
+    'Disconnector',
+    'Current Transformer',
+    'Potential Transformer',
+    'Ground',
+    // Add more here as you create new icon files
+  ];
+
+  // Helper to map symbol key to an actual CustomPainter for preview
+  EquipmentPainter _getSymbolPreviewPainter(String symbolKey, Color color) {
+    switch (symbolKey) {
+      case 'Transformer':
+        return TransformerIconPainter(color: color);
+      case 'Busbar':
+        return BusbarIconPainter(color: color);
+      case 'Circuit Breaker':
+        return CircuitBreakerIconPainter(color: color);
+      case 'Disconnector':
+        return DisconnectorIconPainter(color: color);
+      case 'Current Transformer':
+        return CurrentTransformerIconPainter(color: color);
+      case 'Potential Transformer':
+        return PotentialTransformerIconPainter(color: color);
+      case 'Ground':
+        return GroundIconPainter(color: color);
+      default:
+        return TransformerIconPainter(color: color); // Fallback
+    }
+  }
+
+  // Helper to get preview size for symbols in dropdown
+  Size _getSymbolPreviewSize(String symbolKey) {
+    switch (symbolKey) {
+      case 'Busbar':
+        return const Size(60, 10); // Smaller preview for busbar
+      case 'Current Transformer':
+      case 'Potential Transformer':
+        return const Size(40, 30); // Smaller for CT/PT
+      default:
+        return const Size(30, 30); // Default small preview size
+    }
+  }
 
   @override
   void initState() {
@@ -132,6 +189,7 @@ class _MasterEquipmentManagementScreenState
       _viewMode = MasterEquipmentViewMode.form; // Switch to form view
       _templateToEdit = template;
       _equipmentTypeController.text = template.equipmentType;
+      _selectedSymbolKey = template.symbolKey; // NEW: Set selected symbol key
       // Deep copy customFields from the template, including new 'hasUnits' property
       _equipmentCustomFields = List<Map<String, dynamic>>.from(
         template.equipmentCustomFields.map(
@@ -199,6 +257,7 @@ class _MasterEquipmentManagementScreenState
     setState(() {
       _templateToEdit = null;
       _equipmentTypeController.clear();
+      _selectedSymbolKey = 'Transformer'; // NEW: Reset to default symbol
       _equipmentCustomFields = [];
       _definedRelays = []; // Clear defined relays
       _definedEnergyMeters = []; // Clear defined energy meters
@@ -289,6 +348,7 @@ class _MasterEquipmentManagementScreenState
       final MasterEquipmentTemplate template = MasterEquipmentTemplate(
         id: templateId,
         equipmentType: _equipmentTypeController.text.trim(),
+        symbolKey: _selectedSymbolKey, // NEW: Save selected symbol key
         equipmentCustomFields: _equipmentCustomFields
             .where((field) => (field['name'] as String).isNotEmpty)
             .map(
@@ -497,6 +557,7 @@ class _MasterEquipmentManagementScreenState
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         subtitle: Text(
+                          'Symbol: ${template.symbolKey}\n' // NEW: Display symbol key
                           '${template.equipmentCustomFields.length} equipment fields, '
                           '${template.definedRelays.length} defined relays, '
                           '${template.definedEnergyMeters.length} defined energy meters',
@@ -668,6 +729,49 @@ class _MasterEquipmentManagementScreenState
                       validator: (value) =>
                           value == null || value.trim().isEmpty
                           ? 'Equipment Type cannot be empty'
+                          : null,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // NEW: Symbol mapping dropdown
+                    DropdownButtonFormField<String>(
+                      value: _selectedSymbolKey,
+                      decoration: InputDecoration(
+                        labelText: 'Map to Symbol',
+                        prefixIcon: Icon(
+                          Icons.star,
+                          color: colorScheme.primary,
+                        ),
+                        border: const OutlineInputBorder(),
+                        hintText: 'Choose a visual symbol',
+                      ),
+                      items: _availableSymbolKeys.map((String key) {
+                        return DropdownMenuItem<String>(
+                          value: key,
+                          child: Row(
+                            children: [
+                              CustomPaint(
+                                size: _getSymbolPreviewSize(
+                                  key,
+                                ), // Use appropriate size for preview
+                                painter: _getSymbolPreviewPainter(
+                                  key,
+                                  colorScheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(key),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          _selectedSymbolKey = newValue!;
+                        });
+                      },
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Please select a symbol'
                           : null,
                     ),
                     const SizedBox(height: 20),

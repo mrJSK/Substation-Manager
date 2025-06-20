@@ -7,6 +7,8 @@ class MasterEquipmentTemplate {
   final String id;
   final String equipmentType;
   final List<Map<String, dynamic>> equipmentCustomFields;
+  final String
+  symbolKey; // NEW: Field to store the key for the visual symbol (e.g., 'Transformer', 'Busbar')
 
   final List<Map<String, dynamic>> definedRelays;
   final List<Map<String, dynamic>> definedEnergyMeters;
@@ -20,6 +22,7 @@ class MasterEquipmentTemplate {
     this.definedRelays = const [],
     this.definedEnergyMeters = const [],
     this.associatedRelays = const [],
+    this.symbolKey = 'Transformer', // NEW: Provide a default symbolKey
   });
 
   // Factory constructor to create a MasterEquipmentTemplate from a Firestore document snapshot
@@ -33,7 +36,6 @@ class MasterEquipmentTemplate {
         print(
           'ERROR: MasterEquipmentTemplate.fromFirestore: Document data is null for ID: ${snapshot.id}',
         );
-        // Return a default/error template to prevent crashes and indicate issue
         return MasterEquipmentTemplate(
           id: snapshot.id,
           equipmentType: 'ERROR_NULL_DATA',
@@ -41,39 +43,39 @@ class MasterEquipmentTemplate {
       }
       return MasterEquipmentTemplate(
         id: snapshot.id,
-        equipmentType:
-            data['equipmentType'] as String? ??
-            'Unknown Type', // Added null check and default
+        equipmentType: data['equipmentType'] as String? ?? 'Unknown Type',
         equipmentCustomFields:
             (data['equipmentCustomFields'] as List<dynamic>?)
                 ?.map((e) => Map<String, dynamic>.from(e))
                 .toList() ??
             [],
-        definedRelays: // Deserialize new field with null check
+        definedRelays:
             (data['definedRelays'] as List<dynamic>?)
                 ?.map((e) => Map<String, dynamic>.from(e))
                 .toList() ??
             [],
-        definedEnergyMeters: // Deserialize new field with null check
+        definedEnergyMeters:
             (data['definedEnergyMeters'] as List<dynamic>?)
                 ?.map((e) => Map<String, dynamic>.from(e))
                 .toList() ??
             [],
-        associatedRelays: // Deserialize with null check
+        associatedRelays:
             (data['associatedRelays'] as List<dynamic>?)
                 ?.map((e) => e.toString())
                 .toList() ??
             [],
+        symbolKey:
+            data['symbolKey'] as String? ??
+            'Transformer', // NEW: Deserialize symbolKey
       );
     } catch (e, stackTrace) {
       print(
         'ERROR: Failed to parse MasterEquipmentTemplate from Firestore document ${snapshot.id}: $e',
       );
       print('StackTrace: $stackTrace');
-      // Return a default/error template to allow the stream to continue,
       return MasterEquipmentTemplate(
         id: snapshot.id,
-        equipmentType: 'PARSE_ERROR', // Indicate a parsing error
+        equipmentType: 'PARSE_ERROR',
       );
     }
   }
@@ -86,11 +88,12 @@ class MasterEquipmentTemplate {
       'definedRelays': definedRelays,
       'definedEnergyMeters': definedEnergyMeters,
       'associatedRelays': associatedRelays,
+      'symbolKey': symbolKey, // NEW: Serialize symbolKey
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
 
-  // Factory constructor from Map (for SQLite retrieval or other uses)
+  // Factory constructor from Map (for SQLite retrieval or other uses) - Update if SQLite is used
   factory MasterEquipmentTemplate.fromMap(Map<String, dynamic> map) {
     return MasterEquipmentTemplate(
       id: map['id'] as String,
@@ -113,10 +116,13 @@ class MasterEquipmentTemplate {
       associatedRelays: List<String>.from(
         jsonDecode(map['associatedRelays'] as String) ?? [],
       ),
+      symbolKey:
+          map['symbolKey'] as String? ??
+          'Transformer', // NEW: Deserialize symbolKey from Map
     );
   }
 
-  // Method to convert to Map for SQLite storage
+  // Method to convert to Map for SQLite storage - Update if SQLite is used
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -125,6 +131,7 @@ class MasterEquipmentTemplate {
       'definedRelays': jsonEncode(definedRelays),
       'definedEnergyMeters': jsonEncode(definedEnergyMeters),
       'associatedRelays': jsonEncode(associatedRelays),
+      'symbolKey': symbolKey, // NEW: Serialize symbolKey to Map
     };
   }
 
@@ -136,6 +143,7 @@ class MasterEquipmentTemplate {
     List<Map<String, dynamic>>? definedRelays,
     List<Map<String, dynamic>>? definedEnergyMeters,
     List<String>? associatedRelays,
+    String? symbolKey, // NEW: Add symbolKey to copyWith
   }) {
     return MasterEquipmentTemplate(
       id: id ?? this.id,
@@ -145,6 +153,7 @@ class MasterEquipmentTemplate {
       definedRelays: definedRelays ?? this.definedRelays,
       definedEnergyMeters: definedEnergyMeters ?? this.definedEnergyMeters,
       associatedRelays: associatedRelays ?? this.associatedRelays,
+      symbolKey: symbolKey ?? this.symbolKey, // NEW: Copy symbolKey
     );
   }
 }
