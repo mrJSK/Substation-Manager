@@ -1,4 +1,4 @@
-// lib/screens/sld_selection_screen.dart
+// substation_manager/lib/screens/sld_selection_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -138,11 +138,10 @@ class _SldSelectionScreenState extends State<SldSelectionScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => ChangeNotifierProvider(
-            // <--- Add Provider here
-            create: (_) => SldState(), // Create an instance of SldState
-            child: SldBuilderScreen(substation: _selectedSubstation!),
-          ),
+          builder: (context) =>
+              // REMOVED: ChangeNotifierProvider wrapper here.
+              // SldBuilderScreen will now use the SldState provided by main.dart.
+              SldBuilderScreen(substation: _selectedSubstation!),
         ),
       );
     } else {

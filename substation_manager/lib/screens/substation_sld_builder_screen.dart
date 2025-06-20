@@ -1,4 +1,4 @@
-// lib/screens/substation_sld_builder_screen.dart
+// substation_manager/lib/screens/substation_sld_builder_screen.dart
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
@@ -78,6 +78,15 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
           .listen(
             (templates) {
               if (mounted) {
+                print(
+                  'DEBUG: SldBuilderScreen - Received ${templates.length} templates from Firestore stream.',
+                ); // ADD THIS LINE
+                for (var template in templates) {
+                  // ADD THESE LINES for detailed check
+                  print(
+                    'DEBUG: Template ID: ${template.id}, Type: ${template.equipmentType}',
+                  );
+                }
                 sldState.setAvailableTemplates(templates);
                 sldState.setIsLoadingTemplates(false);
               }
