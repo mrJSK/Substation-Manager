@@ -2,290 +2,37 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:substation_manager/models/electrical_connection.dart';
 import 'package:substation_manager/models/equipment.dart';
 import 'package:substation_manager/state/sld_state.dart';
+import 'package:substation_manager/models/electrical_connection.dart';
+import 'package:substation_manager/utils/snackbar_utils.dart';
+import 'package:substation_manager/utils/grid_utils.dart';
 
-// Abstract class for all equipment painters
-abstract class EquipmentPainter extends CustomPainter {
-  final Color color;
-  final double strokeWidth;
-  EquipmentPainter({required this.color, this.strokeWidth = 2.0});
-}
+// Import all individual equipment icon painters
+import 'package:substation_manager/equipment_icons/transformer_icon.dart';
+import 'package:substation_manager/equipment_icons/busbar_icon.dart';
+import 'package:substation_manager/equipment_icons/circuit_breaker_icon.dart';
+import 'package:substation_manager/equipment_icons/disconnector_icon.dart';
+import 'package:substation_manager/equipment_icons/ct_icon.dart';
+import 'package:substation_manager/equipment_icons/pt_icon.dart';
+import 'package:substation_manager/equipment_icons/ground_icon.dart';
 
-// Implement specific painters for each equipment type
-class TransformerPainter extends EquipmentPainter {
-  TransformerPainter({required super.color, super.strokeWidth});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
-
-    final width = size.width;
-    final height = size.height;
-
-    // Coils
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(width * 0.1, height * 0.25, width * 0.25, height * 0.5),
-        const Radius.circular(2),
-      ),
-      paint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(width * 0.65, height * 0.25, width * 0.25, height * 0.5),
-        const Radius.circular(2),
-      ),
-      paint,
-    );
-
-    // Connecting lines between coils (simplified for visual clarity)
-    canvas.drawLine(
-      Offset(width * 0.35, height * 0.35),
-      Offset(width * 0.65, height * 0.35),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(width * 0.35, height * 0.65),
-      Offset(width * 0.65, height * 0.65),
-      paint,
-    );
-
-    // Terminals
-    canvas.drawLine(
-      Offset(width * 0.225, height * 0.1),
-      Offset(width * 0.225, height * 0.25),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(width * 0.775, height * 0.1),
-      Offset(width * 0.775, height * 0.25),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(width * 0.225, height * 0.75),
-      Offset(width * 0.225, height * 0.9),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(width * 0.775, height * 0.75),
-      Offset(width * 0.775, height * 0.9),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant TransformerPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
-}
-
-class BusbarPainter extends EquipmentPainter {
-  BusbarPainter({required super.color, super.strokeWidth});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill; // Busbars are typically filled rectangles
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, size.width, size.height),
-        const Radius.circular(2),
-      ),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant BusbarPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
-}
-
-class CircuitBreakerPainter extends EquipmentPainter {
-  CircuitBreakerPainter({required super.color, super.strokeWidth});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
-
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 5; // Circle radius, with padding
-
-    canvas.drawCircle(center, radius, paint);
-
-    // Cross lines for breaker
-    canvas.drawLine(
-      Offset(center.dx - radius * 0.7, center.dy - radius * 0.7),
-      Offset(center.dx + radius * 0.7, center.dy + radius * 0.7),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(center.dx + radius * 0.7, center.dy - radius * 0.7),
-      Offset(center.dx - radius * 0.7, center.dy + radius * 0.7),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CircuitBreakerPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
-}
-
-class DisconnectorPainter extends EquipmentPainter {
-  DisconnectorPainter({required super.color, super.strokeWidth});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
-
-    final dotPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    // Line representing the disconnector blade (open position)
-    canvas.drawLine(
-      Offset(size.width * 0.1, size.height * 0.1),
-      Offset(size.width * 0.9, size.height * 0.9),
-      paint,
-    );
-    // Connection points (circles)
-    canvas.drawCircle(Offset(size.width * 0.1, size.height * 0.1), 3, dotPaint);
-    canvas.drawCircle(Offset(size.width * 0.9, size.height * 0.9), 3, dotPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant DisconnectorPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
-}
-
-class CurrentTransformerPainter extends EquipmentPainter {
-  CurrentTransformerPainter({required super.color, super.strokeWidth});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
-
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 5;
-
-    // Toroidal core
-    canvas.drawCircle(center, radius, paint);
-    // Primary winding passing through
-    canvas.drawLine(
-      Offset(center.dx, center.dy - radius),
-      Offset(center.dx, center.dy + radius),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CurrentTransformerPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
-}
-
-class PotentialTransformerPainter extends EquipmentPainter {
-  PotentialTransformerPainter({required super.color, super.strokeWidth});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
-
-    final rect = Rect.fromCenter(
-      center: Offset(size.width / 2, size.height / 2),
-      width: size.width * 0.7,
-      height: size.height * 0.7,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(2)),
-      paint,
-    );
-
-    // Terminals
-    canvas.drawLine(
-      Offset(size.width / 2, 0),
-      Offset(size.width / 2, rect.top),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(size.width / 2, rect.bottom),
-      Offset(size.width / 2, size.height),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant PotentialTransformerPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
-}
-
-class GroundPainter extends EquipmentPainter {
-  GroundPainter({required super.color, super.strokeWidth});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke;
-
-    final center = Offset(size.width / 2, size.height / 2);
-    canvas.drawLine(
-      center.translate(0, -size.height * 0.4),
-      center.translate(0, 0),
-      paint,
-    ); // Vertical line
-    canvas.drawLine(
-      center.translate(-size.width * 0.3, 0),
-      center.translate(size.width * 0.3, 0),
-      paint,
-    ); // Top horizontal
-    canvas.drawLine(
-      center.translate(-size.width * 0.2, size.height * 0.15),
-      center.translate(size.width * 0.2, size.height * 0.15),
-      paint,
-    ); // Middle horizontal
-    canvas.drawLine(
-      center.translate(-size.width * 0.1, size.height * 0.3),
-      center.translate(size.width * 0.1, size.height * 0.3),
-      paint,
-    ); // Bottom horizontal
-  }
-
-  @override
-  bool shouldRepaint(covariant GroundPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
-}
+// The abstract base class for EquipmentPainter is now in transformer_icon.dart
+// (or any other icon file, as long as it's imported by all)
 
 // Main SldEquipmentNode widget
 class SldEquipmentNode extends StatefulWidget {
   final Equipment equipment;
   final ColorScheme colorScheme;
   final Function(Equipment) onDoubleTap;
-  final Function(Equipment)? onLongPress; // Made optional
+  final Function(Equipment)? onLongPress;
 
   const SldEquipmentNode({
     super.key,
     required this.equipment,
     required this.colorScheme,
     required this.onDoubleTap,
-    this.onLongPress, // Now optional
+    this.onLongPress,
   });
 
   @override
@@ -298,30 +45,34 @@ class _SldEquipmentNodeState extends State<SldEquipmentNode> {
     switch (equipmentType) {
       case 'Busbar':
         return const Size(120, 15); // Busbar is typically wider and thinner
+      case 'Current Transformer': // CT/PT might need more horizontal space for text
+      case 'Potential Transformer':
+        return const Size(80, 60); // Wider to accommodate text beside symbol
       default:
         return const Size(60, 60); // Default square size for others
     }
   }
 
+  // Method to map equipment type string to the correct CustomPainter
   EquipmentPainter _getEquipmentPainter(String equipmentType, Color color) {
     switch (equipmentType) {
       case 'Transformer':
-        return TransformerPainter(color: color);
+        return TransformerIconPainter(color: color);
       case 'Busbar':
-        return BusbarPainter(color: color);
+        return BusbarIconPainter(color: color);
       case 'Circuit Breaker':
-        return CircuitBreakerPainter(color: color);
+        return CircuitBreakerIconPainter(color: color);
       case 'Disconnector':
-        return DisconnectorPainter(color: color);
+        return DisconnectorIconPainter(color: color);
       case 'Current Transformer':
-        return CurrentTransformerPainter(color: color);
+        return CurrentTransformerIconPainter(color: color);
       case 'Potential Transformer':
-        return PotentialTransformerPainter(color: color);
+        return PotentialTransformerIconPainter(color: color);
       case 'Ground':
-        return GroundPainter(color: color);
+        return GroundIconPainter(color: color);
       default:
-        // Fallback for unknown types
-        return TransformerPainter(color: color);
+        // Fallback for unknown types (e.g., if a new template type is added but no painter exists)
+        return TransformerIconPainter(color: color); // Default to transformer
     }
   }
 
@@ -372,25 +123,15 @@ class _SldEquipmentNodeState extends State<SldEquipmentNode> {
           );
           sldState.addConnection(newConnection);
           sldState.setConnectionStartEquipment(null);
-          // Show a snackbar message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Connected ${sldState.connectionStartEquipment!.name} to ${widget.equipment.name}',
-              ),
-              duration: const Duration(seconds: 2),
-            ),
+          SnackBarUtils.showSnackBar(
+            context,
+            'Connected ${sldState.connectionStartEquipment!.name} to ${widget.equipment.name}',
           );
         } else if (sldState.connectionStartEquipment?.id ==
             widget.equipment.id) {
           // Tapping the same equipment again cancels connection mode
           sldState.setConnectionStartEquipment(null);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Connection mode cancelled.'),
-              duration: Duration(seconds: 1),
-            ),
-          );
+          SnackBarUtils.showSnackBar(context, 'Connection mode cancelled.');
         } else {
           // Normal selection
           sldState.selectEquipment(widget.equipment);
@@ -417,6 +158,23 @@ class _SldEquipmentNodeState extends State<SldEquipmentNode> {
       },
       onPanEnd: (details) {
         sldState.setIsDragging(false);
+        // Snap the equipment to the grid on pan end
+        final snappedPosition = snapToGrid(
+          Offset(
+            widget.equipment.positionX ?? 0.0,
+            widget.equipment.positionY ?? 0.0,
+          ),
+        );
+        if (snappedPosition !=
+            Offset(
+              widget.equipment.positionX ?? 0.0,
+              widget.equipment.positionY ?? 0.0,
+            )) {
+          sldState.updateEquipmentPosition(
+            widget.equipment.id,
+            snappedPosition,
+          );
+        }
       },
       child: Material(
         elevation: isSelected ? 8 : 4,

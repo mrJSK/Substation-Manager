@@ -11,15 +11,17 @@ import 'package:substation_manager/models/electrical_connection.dart';
 import 'package:substation_manager/services/core_firestore_service.dart';
 import 'package:substation_manager/services/equipment_firestore_service.dart';
 import 'package:substation_manager/services/electrical_connection_firestore_service.dart';
-import 'package:substation_manager/utils/snackbar_utils.dart'; // Ensure this is implemented correctly
+import 'package:substation_manager/utils/snackbar_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:substation_manager/state/sld_state.dart';
-import 'package:substation_manager/widgets/sld_equipment_node.dart'; // NEW IMPORT
-import 'package:substation_manager/widgets/sld_connection_painter.dart'; // NEW IMPORT
-import 'package:substation_manager/widgets/sld_modals.dart'; // NEW IMPORT
+import 'package:substation_manager/widgets/sld_equipment_node.dart';
+import 'package:substation_manager/widgets/sld_connection_painter.dart';
+import 'package:substation_manager/widgets/sld_modals.dart';
+import 'package:substation_manager/utils/grid_utils.dart';
+import 'package:substation_manager/widgets/sld_grid_painter.dart';
 
 class SldBuilderScreen extends StatefulWidget {
   final Substation substation;
@@ -43,6 +45,10 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
 
   final GlobalKey _canvasKey = GlobalKey();
   bool _isSavingSld = false;
+
+  // Define the fixed canvas size
+  static const double _canvasWidth = 3000.0;
+  static const double _canvasHeight = 2000.0;
 
   @override
   void initState() {
@@ -156,10 +162,14 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
   }
 
   // Helper to get the correct size for the Draggable feedback and DragTarget acceptance
+  // This must match the internal logic in _SldEquipmentNodeState._getEquipmentSize
   Size _getEquipmentNodeSize(String equipmentType) {
     switch (equipmentType) {
       case 'Busbar':
         return const Size(120, 15);
+      case 'Current Transformer':
+      case 'Potential Transformer':
+        return const Size(80, 60);
       default:
         return const Size(60, 60);
     }
@@ -176,12 +186,16 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
       orElse: () => throw Exception('Template not found'),
     );
 
-    // Adjust position to center the dropped component
+    // Adjust position to center the dropped component and then snap to grid
     final nodeSize = _getEquipmentNodeSize(template.equipmentType);
     final adjustedPositionX = canvasLocalPosition.dx - nodeSize.width / 2;
     final adjustedPositionY =
         canvasLocalPosition.dy -
         (nodeSize.height * 1.5) / 2; // Adjust for label height
+
+    final snappedPosition = snapToGrid(
+      Offset(adjustedPositionX, adjustedPositionY),
+    );
 
     final newEquipment = Equipment(
       id: _uuid.v4(),
@@ -190,8 +204,8 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
       equipmentType: template.equipmentType,
       masterTemplateId: template.id,
       name: '${template.equipmentType} ${_uuid.v4().substring(0, 4)}',
-      positionX: adjustedPositionX,
-      positionY: adjustedPositionY,
+      positionX: snappedPosition.dx, // Use snapped position
+      positionY: snappedPosition.dy, // Use snapped position
       customFieldValues: {},
       relays: [],
       energyMeters: [],
@@ -587,7 +601,7 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
           // Main canvas area
           Expanded(
             child: InteractiveViewer(
-              constrained: false, // Allows content to be larger than viewport
+              constrained: false,
               boundaryMargin: const EdgeInsets.all(500),
               minScale: 0.1,
               maxScale: 4.0,
@@ -604,7 +618,6 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
                   return GestureDetector(
                     onTap: () {
                       if (!sldState.isDragging) {
-                        // Only deselect if not dragging a component
                         sldState.selectEquipment(null);
                         sldState.selectConnection(null);
                         sldState.setConnectionStartEquipment(null);
@@ -613,10 +626,20 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
                     child: Container(
                       key: _canvasKey,
                       color: Colors.grey[200],
-                      width: 3000.0, // Fixed large canvas size
-                      height: 2000.0,
+                      width: _canvasWidth, // Use constant width
+                      height: _canvasHeight, // Use constant height
                       child: Stack(
                         children: [
+                          // Render Grid
+                          CustomPaint(
+                            painter: SldGridPainter(
+                              canvasWidth: _canvasWidth,
+                              canvasHeight: _canvasHeight,
+                              gridColor: colorScheme.onSurface,
+                            ),
+                            size: Size.infinite,
+                          ),
+
                           // Render Connections (background layer)
                           CustomPaint(
                             painter: ConnectionPainter(
