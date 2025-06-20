@@ -204,6 +204,13 @@ class SldState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // NEW METHOD: Get MasterEquipmentTemplate for a given Equipment
+  MasterEquipmentTemplate? getTemplateForEquipment(Equipment equipment) {
+    return _availableTemplates.firstWhereOrNull(
+      (template) => template.id == equipment.masterTemplateId,
+    );
+  }
+
   void updateAllEquipment(List<Equipment> equipmentList) {
     _placedEquipment.clear();
     _initialEquipmentSnapshot.clear();

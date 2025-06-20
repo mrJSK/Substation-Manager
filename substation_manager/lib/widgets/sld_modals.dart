@@ -89,25 +89,6 @@ void showAddElementModal(
           ElevatedButton(
             onPressed: sldState.selectedTemplateInModal != null
                 ? () {
-                    // This modal only selects the template. The dropping on canvas
-                    // handles adding the actual equipment instance.
-                    // The main screen needs to pick up sldState.selectedTemplateInModal
-                    // and use it when an item is dropped.
-                    // For direct placement without drag-and-drop:
-                    // final newEquipment = Equipment(
-                    //   id: const Uuid().v4(),
-                    //   substationId: 'some_substation_id', // You need to pass this or get from context
-                    //   bayId: 'default_bay_id', // You need to pass this or get from context
-                    //   equipmentType: sldState.selectedTemplateInModal!.equipmentType,
-                    //   masterTemplateId: sldState.selectedTemplateInModal!.id,
-                    //   name: '${sldState.selectedTemplateInModal!.equipmentType} ${const Uuid().v4().substring(0, 4)}',
-                    //   positionX: 50.0, // Default position, user will drag
-                    //   positionY: 50.0,
-                    //   customFieldValues: {},
-                    //   relays: [],
-                    //   energyMeters: [],
-                    // );
-                    // sldState.addEquipment(newEquipment);
                     Navigator.of(dialogContext).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -136,7 +117,18 @@ void showEditPropertiesModal(BuildContext context, Equipment equipment) {
   final TextEditingController nameController = TextEditingController(
     text: equipment.name,
   );
-  // You would add controllers for custom fields, relays, etc. here
+  final Map<String, TextEditingController> customFieldControllers = {};
+  final Map<String, dynamic> tempCustomFieldValues = Map.from(
+    equipment.customFieldValues,
+  ); // Mutable copy
+
+  // Initialize controllers for existing custom field values
+  equipment.customFieldValues.forEach((key, value) {
+    customFieldControllers[key] = TextEditingController(
+      text: value?.toString() ?? '',
+    );
+  });
+
   final formKey = GlobalKey<FormState>();
 
   showDialog(
@@ -144,59 +136,96 @@ void showEditPropertiesModal(BuildContext context, Equipment equipment) {
     builder: (BuildContext dialogContext) {
       return AlertDialog(
         title: Text('Edit ${equipment.equipmentType} Properties'),
-        content: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Equipment Name',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Name cannot be empty';
-                    }
-                    return null;
-                  },
+        content: FutureBuilder<MasterEquipmentTemplate?>(
+          future: Future.value(
+            sldState.getTemplateForEquipment(equipment),
+          ), // Use Future.value for immediate future
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Text('Error loading template: ${snapshot.error}');
+            }
+            final MasterEquipmentTemplate? template = snapshot.data;
+
+            return Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Equipment Name',
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Name cannot be empty';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    if (template != null &&
+                        template.equipmentCustomFields.isNotEmpty) ...[
+                      Text(
+                        'Custom Fields',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      ...template.equipmentCustomFields.map((field) {
+                        final fieldName = field['name'] as String;
+                        // Ensure controller exists for this field
+                        if (!customFieldControllers.containsKey(fieldName)) {
+                          customFieldControllers[fieldName] =
+                              TextEditingController(
+                                text:
+                                    tempCustomFieldValues[fieldName]
+                                        ?.toString() ??
+                                    '',
+                              );
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: TextFormField(
+                            controller: customFieldControllers[fieldName],
+                            decoration: InputDecoration(
+                              labelText: fieldName,
+                              hintText: 'Enter ${fieldName}',
+                            ),
+                            keyboardType: _getKeyboardType(
+                              field['type'] as String?,
+                            ),
+                            onChanged: (value) {
+                              // Update the temporary map
+                              tempCustomFieldValues[fieldName] = value;
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ] else if (template != null &&
+                        template.equipmentCustomFields.isEmpty)
+                      const Text(
+                        'No custom fields defined for this equipment type.',
+                      ),
+                    if (template == null)
+                      const Text('Equipment template not found.'),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                // Add more fields here for custom properties, relays, meters, etc.
-                // You'll need to fetch the MasterEquipmentTemplate for this equipment
-                // to know what custom fields to display.
-                // Example:
-                // FutureBuilder<MasterEquipmentTemplate?>(
-                //   future: sldState.getTemplateForEquipment(equipment), // You'd need to add this method to SldState
-                //   builder: (context, snapshot) {
-                //     if (snapshot.connectionState == ConnectionState.waiting) {
-                //       return const CircularProgressIndicator();
-                //     }
-                //     if (snapshot.hasData && snapshot.data != null) {
-                //       return Column(
-                //         children: snapshot.data!.equipmentCustomFields.map((field) {
-                //           // Render text fields, dropdowns based on field type
-                //           return TextFormField(
-                //             decoration: InputDecoration(labelText: field['name']),
-                //             initialValue: equipment.customFieldValues[field['name']]?.toString() ?? '',
-                //             onChanged: (value) {
-                //               // Update local state, then push to sldState on save
-                //             },
-                //           );
-                //         }).toList(),
-                //       );
-                //     }
-                //     return const Text('No custom fields defined.');
-                //   },
-                // ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
         actions: [
           TextButton(
             onPressed: () {
+              // Dispose controllers to prevent memory leaks
+              nameController.dispose();
+              customFieldControllers.values.forEach(
+                (controller) => controller.dispose(),
+              );
               Navigator.of(dialogContext).pop();
             },
             child: const Text('Cancel'),
@@ -206,9 +235,15 @@ void showEditPropertiesModal(BuildContext context, Equipment equipment) {
               if (formKey.currentState!.validate()) {
                 final updatedEquipment = equipment.copyWith(
                   name: nameController.text,
-                  // Merge updated custom field values here
+                  customFieldValues:
+                      tempCustomFieldValues, // Use the updated map
                 );
                 sldState.updateEquipment(updatedEquipment);
+                // Dispose controllers
+                nameController.dispose();
+                customFieldControllers.values.forEach(
+                  (controller) => controller.dispose(),
+                );
                 Navigator.of(dialogContext).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -224,4 +259,22 @@ void showEditPropertiesModal(BuildContext context, Equipment equipment) {
       );
     },
   );
+}
+
+// Helper function to determine keyboard type based on field type
+TextInputType _getKeyboardType(String? fieldType) {
+  switch (fieldType?.toLowerCase()) {
+    case 'number':
+    case 'int':
+    case 'double':
+      return TextInputType.number;
+    case 'email':
+      return TextInputType.emailAddress;
+    case 'phone':
+      return TextInputType.phone;
+    case 'url':
+      return TextInputType.url;
+    default:
+      return TextInputType.text;
+  }
 }
