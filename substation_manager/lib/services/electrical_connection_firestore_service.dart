@@ -17,6 +17,13 @@ class ElectricalConnectionFirestoreService {
         );
   }
 
+  // This method is required for batch operations in SldState
+  DocumentReference<ElectricalConnection> getConnectionDocRef(
+    String connectionId,
+  ) {
+    return _connectionsRef.doc(connectionId);
+  }
+
   // --- ElectricalConnection Methods ---
   Stream<List<ElectricalConnection>> getConnectionsStream({
     String? substationId,
