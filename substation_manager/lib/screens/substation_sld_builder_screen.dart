@@ -1,4 +1,4 @@
-// substation_manager/lib/screens/substation_sld_builder_screen.dart
+// lib/screens/substation_sld_builder_screen.dart
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
@@ -11,15 +11,15 @@ import 'package:substation_manager/models/electrical_connection.dart';
 import 'package:substation_manager/services/core_firestore_service.dart';
 import 'package:substation_manager/services/equipment_firestore_service.dart';
 import 'package:substation_manager/services/electrical_connection_firestore_service.dart';
-import 'package:substation_manager/utils/snackbar_utils.dart';
+import 'package:substation_manager/utils/snackbar_utils.dart'; // Ensure this is implemented correctly
 import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:substation_manager/state/sld_state.dart';
-import 'package:substation_manager/widgets/sld_equipment_node.dart';
-import 'package:substation_manager/widgets/sld_connection_painter.dart';
-import 'package:substation_manager/widgets/sld_modals.dart';
+import 'package:substation_manager/widgets/sld_equipment_node.dart'; // NEW IMPORT
+import 'package:substation_manager/widgets/sld_connection_painter.dart'; // NEW IMPORT
+import 'package:substation_manager/widgets/sld_modals.dart'; // NEW IMPORT
 
 class SldBuilderScreen extends StatefulWidget {
   final Substation substation;
@@ -80,9 +80,8 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
               if (mounted) {
                 print(
                   'DEBUG: SldBuilderScreen - Received ${templates.length} templates from Firestore stream.',
-                ); // ADD THIS LINE
+                );
                 for (var template in templates) {
-                  // ADD THESE LINES for detailed check
                   print(
                     'DEBUG: Template ID: ${template.id}, Type: ${template.equipmentType}',
                   );
@@ -156,6 +155,16 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
         );
   }
 
+  // Helper to get the correct size for the Draggable feedback and DragTarget acceptance
+  Size _getEquipmentNodeSize(String equipmentType) {
+    switch (equipmentType) {
+      case 'Busbar':
+        return const Size(120, 15);
+      default:
+        return const Size(60, 60);
+    }
+  }
+
   void _onEquipmentDropped(
     BuildContext context,
     Offset canvasLocalPosition,
@@ -167,15 +176,22 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
       orElse: () => throw Exception('Template not found'),
     );
 
+    // Adjust position to center the dropped component
+    final nodeSize = _getEquipmentNodeSize(template.equipmentType);
+    final adjustedPositionX = canvasLocalPosition.dx - nodeSize.width / 2;
+    final adjustedPositionY =
+        canvasLocalPosition.dy -
+        (nodeSize.height * 1.5) / 2; // Adjust for label height
+
     final newEquipment = Equipment(
       id: _uuid.v4(),
       substationId: widget.substation.id,
-      bayId: 'default_sld_bay',
+      bayId: 'default_sld_bay', // Or prompt user for bay if relevant
       equipmentType: template.equipmentType,
       masterTemplateId: template.id,
       name: '${template.equipmentType} ${_uuid.v4().substring(0, 4)}',
-      positionX: canvasLocalPosition.dx,
-      positionY: canvasLocalPosition.dy,
+      positionX: adjustedPositionX,
+      positionY: adjustedPositionY,
       customFieldValues: {},
       relays: [],
       energyMeters: [],
@@ -290,38 +306,29 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
           );
         }
       }
+    } else {
+      SnackBarUtils.showSnackBar(context, 'No item selected to delete.');
     }
   }
 
-  void _addConnectionInteraction(SldState sldState) {
-    if (sldState.selectedEquipment == null &&
-        sldState.connectionStartEquipment == null) {
-      SnackBarUtils.showSnackBar(
-        context,
-        'Select the first equipment to connect.',
-      );
-    } else if (sldState.selectedEquipment != null &&
-        sldState.connectionStartEquipment == null) {
-      sldState.setConnectionStartEquipment(sldState.selectedEquipment);
-      SnackBarUtils.showSnackBar(
-        context,
-        'Selected ${sldState.selectedEquipment!.name}. Now tap another equipment to complete the connection.',
-      );
-    } else if (sldState.connectionStartEquipment != null) {
-      sldState.setConnectionStartEquipment(null);
-      SnackBarUtils.showSnackBar(context, 'Connection mode cancelled.');
-    }
+  void _showAddElementModalDialog(
+    BuildContext dialogContext,
+    SldState sldState,
+  ) {
+    showAddElementModal(dialogContext, sldState.availableTemplates);
   }
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    // Watch SldState for changes to rebuild UI
     final sldState = context.watch<SldState>();
 
     return Scaffold(
       appBar: AppBar(
         title: Text('SLD Builder: ${widget.substation.name}'),
         actions: [
+          // Clear All button
           IconButton(
             icon: const Icon(Icons.clear_all),
             tooltip: 'Clear All SLD Elements',
@@ -362,6 +369,7 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
               }
             },
           ),
+          // Save button
           Consumer<SldState>(
             builder: (context, sldState, child) {
               print(
@@ -427,26 +435,16 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
               );
             },
           ),
+          // Delete Selected Item button
           if (sldState.selectedEquipment != null ||
-              sldState.selectedConnection != null ||
-              sldState.connectionStartEquipment != null)
+              sldState.selectedConnection !=
+                  null) // Only show if something is selected
             IconButton(
               icon: const Icon(Icons.delete_forever),
               tooltip: 'Delete Selected Item',
               onPressed: () => _deleteSelectedItem(sldState),
             ),
-          IconButton(
-            icon: Icon(
-              Icons.link,
-              color: sldState.connectionStartEquipment != null
-                  ? Theme.of(context).colorScheme.tertiary
-                  : null,
-            ),
-            tooltip: sldState.connectionStartEquipment != null
-                ? 'Cancel Connection Mode'
-                : 'Create Connection',
-            onPressed: () => _addConnectionInteraction(sldState),
-          ),
+          // Edit Properties button (only for equipment)
           if (sldState.selectedEquipment != null)
             IconButton(
               icon: const Icon(Icons.edit),
@@ -459,156 +457,244 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
             ),
         ],
       ),
-      body: Consumer<SldState>(
-        builder: (context, sldState, child) {
-          return Row(
-            children: [
-              Expanded(
-                child: InteractiveViewer(
-                  constrained: false,
-                  boundaryMargin: const EdgeInsets.all(500),
-                  minScale: 0.1,
-                  maxScale: 4.0,
-                  panEnabled: sldState.isCanvasPanEnabled,
-                  child: DragTarget<String>(
-                    onAcceptWithDetails: (details) {
-                      final RenderBox renderBox =
-                          _canvasKey.currentContext?.findRenderObject()
-                              as RenderBox;
-                      final localOffset = renderBox.globalToLocal(
-                        details.offset,
-                      );
-                      _onEquipmentDropped(context, localOffset, details.data);
-                    },
-                    builder: (context, candidateData, rejectedData) {
-                      return Container(
-                        key: _canvasKey,
-                        color: Colors.grey[200],
-                        width: 3000.0,
-                        height: 2000.0,
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: GestureDetector(
-                                onTap: () {
-                                  if (!sldState.isDragging) {
-                                    sldState.selectEquipment(null);
-                                    sldState.selectConnection(null);
-                                    sldState.setConnectionStartEquipment(null);
-                                  }
-                                  sldState.setIsDragging(false);
-                                },
-                                behavior: HitTestBehavior.translucent,
-                              ),
-                            ),
-                            ...sldState.placedEquipment.values.map((equipment) {
-                              return Positioned(
-                                left: equipment.positionX,
-                                top: equipment.positionY,
-                                child: SldEquipmentNode(
-                                  equipment: equipment,
-                                  colorScheme: colorScheme,
-                                  onDoubleTap: (eq) {
-                                    sldState.selectEquipment(eq);
-                                    showEditPropertiesModal(context, eq);
-                                  },
-                                  onLongPress: (eq) {
-                                    sldState.selectEquipment(eq);
-                                    showDialog(
-                                      context: context,
-                                      builder: (dialogContext) {
-                                        return AlertDialog(
-                                          title: Text(eq.name),
-                                          content: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              ListTile(
-                                                leading: const Icon(Icons.edit),
-                                                title: const Text(
-                                                  'Edit Properties',
-                                                ),
-                                                onTap: () {
-                                                  Navigator.pop(dialogContext);
-                                                  showEditPropertiesModal(
-                                                    context,
-                                                    eq,
-                                                  );
-                                                },
-                                              ),
-                                              ListTile(
-                                                leading: const Icon(Icons.link),
-                                                title: const Text(
-                                                  'Create Connection',
-                                                ),
-                                                onTap: () {
-                                                  Navigator.pop(dialogContext);
-                                                  sldState
-                                                      .setConnectionStartEquipment(
-                                                        eq,
-                                                      );
-                                                  SnackBarUtils.showSnackBar(
-                                                    context,
-                                                    'Selected ${eq.name}. Now tap another equipment to complete the connection.',
-                                                  );
-                                                },
-                                              ),
-                                              ListTile(
-                                                leading: const Icon(
-                                                  Icons.delete,
-                                                  color: Colors.red,
-                                                ),
-                                                title: const Text(
-                                                  'Delete',
-                                                  style: TextStyle(
-                                                    color: Colors.red,
-                                                  ),
-                                                ),
-                                                onTap: () {
-                                                  Navigator.pop(dialogContext);
-                                                  _deleteSelectedItem(sldState);
-                                                },
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    );
-                                  },
-                                ),
-                              );
-                            }),
-
-                            // Render Connections
-                            CustomPaint(
-                              painter: ConnectionPainter(
-                                equipment: sldState.placedEquipment.values
-                                    .toList(),
-                                connections: sldState.connections,
-                                onConnectionTap: (connection) {
-                                  sldState.selectConnection(connection);
-                                },
-                                selectedConnection: sldState.selectedConnection,
-                                colorScheme: colorScheme,
-                              ),
-                              size: Size.infinite,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+      body: Row(
+        children: [
+          // Sidebar for equipment templates
+          Container(
+            width: 150,
+            color: colorScheme.surfaceVariant.withOpacity(
+              0.3,
+            ), // Lighter background
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Templates',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurface,
                   ),
                 ),
+                const Divider(),
+                if (sldState.isLoadingTemplates)
+                  const Center(child: CircularProgressIndicator())
+                else if (sldState.availableTemplates.isEmpty)
+                  const Text(
+                    'No templates loaded.',
+                    style: TextStyle(fontSize: 12),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: sldState.availableTemplates.length,
+                      itemBuilder: (context, index) {
+                        final template = sldState.availableTemplates[index];
+                        // Get the size for this template type
+                        final templateNodeSize = _getEquipmentNodeSize(
+                          template.equipmentType,
+                        );
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Draggable<String>(
+                            // Draggable provides the data
+                            data: template.id, // Pass template ID when dragging
+                            feedback: Material(
+                              elevation: 12, // More prominent feedback
+                              borderRadius: BorderRadius.circular(
+                                templateNodeSize.height / 4,
+                              ),
+                              child: Container(
+                                width: templateNodeSize.width,
+                                height: templateNodeSize.height * 1.5,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary.withOpacity(
+                                    0.8,
+                                  ), // Feedback color
+                                  borderRadius: BorderRadius.circular(
+                                    templateNodeSize.height / 4,
+                                  ),
+                                ),
+                                child: SldEquipmentNode(
+                                  // Re-use the node for feedback visual
+                                  equipment: Equipment(
+                                    // Create a dummy equipment for visual
+                                    id: 'feedback',
+                                    substationId: '',
+                                    bayId: '',
+                                    equipmentType: template.equipmentType,
+                                    masterTemplateId: template.id,
+                                    name: template.equipmentType,
+                                    positionX: 0,
+                                    positionY: 0,
+                                  ),
+                                  colorScheme: colorScheme,
+                                  onDoubleTap:
+                                      (eq) {}, // No interaction for feedback
+                                  onLongPress:
+                                      (eq) {}, // No interaction for feedback
+                                ),
+                              ),
+                            ),
+                            childWhenDragging: Opacity(
+                              // Make original item slightly transparent when dragging
+                              opacity: 0.5,
+                              child: SldEquipmentNode(
+                                equipment: Equipment(
+                                  id: template.id,
+                                  substationId: '',
+                                  bayId: '',
+                                  equipmentType: template.equipmentType,
+                                  masterTemplateId: template.id,
+                                  name: template.equipmentType,
+                                  positionX: 0,
+                                  positionY: 0,
+                                ),
+                                colorScheme: colorScheme,
+                                onDoubleTap: (eq) {},
+                                onLongPress: (eq) {},
+                              ),
+                            ),
+                            child: Card(
+                              elevation: 2,
+                              margin:
+                                  EdgeInsets.zero, // Remove default card margin
+                              child: SldEquipmentNode(
+                                equipment: Equipment(
+                                  id: template.id,
+                                  substationId: '',
+                                  bayId: '',
+                                  equipmentType: template.equipmentType,
+                                  masterTemplateId: template.id,
+                                  name: template.equipmentType,
+                                  positionX: 0,
+                                  positionY: 0,
+                                ),
+                                colorScheme: colorScheme,
+                                onDoubleTap:
+                                    (eq) {}, // No double tap action in palette
+                                onLongPress:
+                                    (eq) {}, // No long press action in palette
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Main canvas area
+          Expanded(
+            child: InteractiveViewer(
+              constrained: false, // Allows content to be larger than viewport
+              boundaryMargin: const EdgeInsets.all(500),
+              minScale: 0.1,
+              maxScale: 4.0,
+              panEnabled: !sldState.isDragging, // Disable pan when dragging
+              child: DragTarget<String>(
+                onAcceptWithDetails: (details) {
+                  final RenderBox renderBox =
+                      _canvasKey.currentContext?.findRenderObject()
+                          as RenderBox;
+                  final localOffset = renderBox.globalToLocal(details.offset);
+                  _onEquipmentDropped(context, localOffset, details.data);
+                },
+                builder: (context, candidateData, rejectedData) {
+                  return GestureDetector(
+                    onTap: () {
+                      if (!sldState.isDragging) {
+                        // Only deselect if not dragging a component
+                        sldState.selectEquipment(null);
+                        sldState.selectConnection(null);
+                        sldState.setConnectionStartEquipment(null);
+                      }
+                    },
+                    child: Container(
+                      key: _canvasKey,
+                      color: Colors.grey[200],
+                      width: 3000.0, // Fixed large canvas size
+                      height: 2000.0,
+                      child: Stack(
+                        children: [
+                          // Render Connections (background layer)
+                          CustomPaint(
+                            painter: ConnectionPainter(
+                              equipment: sldState.placedEquipment.values
+                                  .toList(),
+                              connections: sldState.connections,
+                              onConnectionTap: (connection) {
+                                sldState.selectConnection(connection);
+                              },
+                              selectedConnection: sldState.selectedConnection,
+                              colorScheme: colorScheme,
+                            ),
+                            size: Size.infinite, // Fill the stack
+                          ),
+
+                          // Render Equipment Nodes (foreground layer)
+                          ...sldState.placedEquipment.values.map((equipment) {
+                            return Positioned(
+                              left: equipment.positionX,
+                              top: equipment.positionY,
+                              child: SldEquipmentNode(
+                                equipment: equipment,
+                                colorScheme: colorScheme,
+                                onDoubleTap: (eq) {
+                                  sldState.selectEquipment(eq);
+                                  showEditPropertiesModal(context, eq);
+                                },
+                                onLongPress: (eq) {
+                                  // This long press now initiates a connection if not already in connection mode
+                                  if (sldState.connectionStartEquipment ==
+                                      null) {
+                                    sldState.setConnectionStartEquipment(eq);
+                                    SnackBarUtils.showSnackBar(
+                                      context,
+                                      'Selected ${eq.name} to start connection. Now tap another equipment to complete.',
+                                    );
+                                  } else if (sldState
+                                          .connectionStartEquipment
+                                          ?.id ==
+                                      eq.id) {
+                                    // Tapping the same equipment again cancels connection mode
+                                    sldState.setConnectionStartEquipment(null);
+                                    SnackBarUtils.showSnackBar(
+                                      context,
+                                      'Connection mode cancelled.',
+                                    );
+                                  } else {
+                                    // Complete connection if already in connection mode and different equipment
+                                    final newConnection = ElectricalConnection(
+                                      substationId: widget.substation.id,
+                                      fromEquipmentId:
+                                          sldState.connectionStartEquipment!.id,
+                                      toEquipmentId: eq.id,
+                                    );
+                                    sldState.addConnection(newConnection);
+                                    sldState.setConnectionStartEquipment(null);
+                                    SnackBarUtils.showSnackBar(
+                                      context,
+                                      'Connected ${sldState.connectionStartEquipment!.name} to ${eq.name}.',
+                                    );
+                                  }
+                                },
+                              ),
+                            );
+                          }).toList(),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
-            ],
-          );
-        },
+            ),
+          ),
+        ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.miniStartFloat,
       floatingActionButton: FloatingActionButton(
-        onPressed: () => showAddElementModal(
-          context,
-          sldState.availableTemplates,
-        ), // Pass available templates
+        onPressed: () => _showAddElementModalDialog(context, sldState),
         tooltip: 'Add New SLD Element',
         child: const Icon(Icons.add),
       ),

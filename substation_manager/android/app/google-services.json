@@ -12,7 +12,20 @@
           "package_name": "com.example.substation_manager"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "683826355581-gofbi3dmk54slcd588fmupb0i8i853ge.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.substation_manager",
+            "certificate_hash": "a460c2e5594bb276b9abb71078ae4507c6b55293"
+          }
+        },
+        {
+          "client_id": "683826355581-f87055shub73b2lo6bs0vucqj7mghshl.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyC-HqA2f6FbEsEAznw0qw0MAt4PSa3lJcw"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "683826355581-f87055shub73b2lo6bs0vucqj7mghshl.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

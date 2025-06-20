@@ -36,17 +36,8 @@ class SldState extends ChangeNotifier {
   final List<ElectricalConnection> _initialConnectionSnapshot = [];
 
   bool _hasPendingChanges = false;
-  bool _isDragging = false;
-
-  bool _isCanvasPanEnabled = true;
-  bool get isCanvasPanEnabled => _isCanvasPanEnabled;
-
-  set isCanvasPanEnabled(bool value) {
-    if (_isCanvasPanEnabled != value) {
-      _isCanvasPanEnabled = value;
-      notifyListeners();
-    }
-  }
+  bool _isDragging = false; // Add this flag
+  // Removed _isCanvasPanEnabled as it's now controlled by _isDragging
 
   void clearAllSldElements() {
     _placedEquipment.clear();
@@ -78,7 +69,15 @@ class SldState extends ChangeNotifier {
     return _hasPendingChanges;
   }
 
-  bool get isDragging => _isDragging;
+  bool get isDragging => _isDragging; // Getter for the new flag
+
+  // Setter for the new flag
+  void setIsDragging(bool dragging) {
+    if (_isDragging != dragging) {
+      _isDragging = dragging;
+      notifyListeners(); // Notify listeners when this changes
+    }
+  }
 
   void addEquipment(Equipment equipment) {
     _placedEquipment[equipment.id] = equipment;
@@ -124,12 +123,25 @@ class SldState extends ChangeNotifier {
   }
 
   void addConnection(ElectricalConnection connection) {
-    _connections.add(connection);
-    _hasPendingChanges = true;
-    print(
-      'DEBUG: SldState($debugId).addConnection called. _hasPendingChanges = $_hasPendingChanges',
-    );
-    notifyListeners();
+    // Prevent adding duplicate connections (by checking if from/to pair already exists,
+    // regardless of order, or if the exact connection ID already exists)
+    final isDuplicate = _connections.any((existingConn) {
+      return (existingConn.fromEquipmentId == connection.fromEquipmentId &&
+              existingConn.toEquipmentId == connection.toEquipmentId) ||
+          (existingConn.fromEquipmentId == connection.toEquipmentId &&
+              existingConn.toEquipmentId == connection.fromEquipmentId);
+    });
+
+    if (!isDuplicate) {
+      _connections.add(connection);
+      _hasPendingChanges = true;
+      print(
+        'DEBUG: SldState($debugId).addConnection called. _hasPendingChanges = $_hasPendingChanges',
+      );
+      notifyListeners();
+    } else {
+      print('DEBUG: Attempted to add duplicate connection. Ignored.');
+    }
   }
 
   void removeConnection(String id) {
@@ -144,7 +156,11 @@ class SldState extends ChangeNotifier {
   void selectEquipment(Equipment? equipment) {
     _selectedEquipment = equipment;
     _selectedConnection = null;
-    _connectionStartEquipment = null;
+    // Keep _connectionStartEquipment if it's the same equipment being selected again,
+    // otherwise, clear it to prevent accidental connections.
+    if (equipment?.id != _connectionStartEquipment?.id) {
+      _connectionStartEquipment = null;
+    }
     notifyListeners();
   }
 
@@ -157,7 +173,8 @@ class SldState extends ChangeNotifier {
 
   void setConnectionStartEquipment(Equipment? equipment) {
     _connectionStartEquipment = equipment;
-    _selectedEquipment = null;
+    _selectedEquipment =
+        null; // Deselect equipment when entering connection mode
     _selectedConnection = null;
     notifyListeners();
   }
@@ -184,11 +201,6 @@ class SldState extends ChangeNotifier {
 
   void setIsLoadingTemplates(bool loading) {
     _isLoadingTemplates = loading;
-    notifyListeners();
-  }
-
-  void setIsDragging(bool dragging) {
-    _isDragging = dragging;
     notifyListeners();
   }
 
@@ -227,12 +239,12 @@ class SldState extends ChangeNotifier {
           eq.id: eq,
       };
 
-      final existingConnectionIds =
-          (await _connectionFirestoreService
-                  .getConnectionsStream(substation.id)
-                  .first)
-              .map((c) => c.id)
-              .toSet();
+      // Fetch existing connections from Firestore for comparison
+      final existingConnectionsFromFirestore = await _connectionFirestoreService
+          .getConnectionsOnce(substationId: substation.id);
+      final existingConnectionIds = existingConnectionsFromFirestore
+          .map((c) => c.id)
+          .toSet();
 
       final equipmentToAdd = _placedEquipment.values
           .where((eq) => !originalEquipmentMap.containsKey(eq.id))
@@ -245,15 +257,29 @@ class SldState extends ChangeNotifier {
           .where((eq) => !_placedEquipment.containsKey(eq.id))
           .toList();
 
-      final connectionsToAdd = _connections
-          .where((conn) => !existingConnectionIds.contains(conn.id))
-          .toList();
-      final connectionsToUpdate = _connections
-          .where((conn) => existingConnectionIds.contains(conn.id))
-          .toList();
-      final connectionsToDeleteIds = existingConnectionIds
-          .where((id) => !connections.any((conn) => conn.id == id))
-          .toList();
+      // Connections: find added, updated, deleted
+      final List<ElectricalConnection> connectionsToAdd = [];
+      final List<ElectricalConnection> connectionsToUpdate = [];
+      final List<String> connectionsToDeleteIds = [];
+
+      // Determine connections to add/update
+      for (var currentConn in _connections) {
+        if (!existingConnectionIds.contains(currentConn.id)) {
+          connectionsToAdd.add(currentConn);
+        } else {
+          // You might need a more robust way to check if a connection is "updated"
+          // For now, if its ID exists, it's considered for update (merge)
+          connectionsToUpdate.add(currentConn);
+        }
+      }
+
+      // Determine connections to delete
+      final currentConnectionIds = _connections.map((c) => c.id).toSet();
+      for (var existingConn in existingConnectionsFromFirestore) {
+        if (!currentConnectionIds.contains(existingConn.id)) {
+          connectionsToDeleteIds.add(existingConn.id);
+        }
+      }
 
       await _equipmentFirestoreService.batchWriteEquipment(
         substationId: substation.id,

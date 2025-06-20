@@ -26,9 +26,14 @@ class _SignInScreenState extends State<SignInScreen> {
     });
 
     try {
-      final GoogleSignIn googleSignIn = GoogleSignIn();
+      // Initialize GoogleSignIn with the web client ID
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId:
+            '415497790316-6fqe2qrhu3r7nn6g565itnsglijra27k.apps.googleusercontent.com', // <--- REPLACE WITH YOUR ACTUAL WEB CLIENT ID
+      );
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
+      // ... (rest of your existing _signInWithGoogle logic)
       if (googleUser == null) {
         if (mounted) {
           SnackBarUtils.showSnackBar(context, 'Google Sign-In cancelled.');
