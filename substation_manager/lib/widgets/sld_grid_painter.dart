@@ -11,7 +11,8 @@ class SldGridPainter extends CustomPainter {
   SldGridPainter({
     required this.canvasWidth,
     required this.canvasHeight,
-    this.gridColor = Colors.grey, // Default grid color
+    this.gridColor = Colors.grey,
+    required double gridSize, // Default grid color
   });
 
   @override
@@ -28,7 +29,16 @@ class SldGridPainter extends CustomPainter {
 
     // Draw horizontal lines
     for (double y = 0; y <= canvasHeight; y += gridSize) {
-      canvas.drawLine(Offset(0, y), Offset(canvasWidth, y), paint);
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(0, y),
+        paint,
+      ); // Fixed: Should draw across width
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(canvasWidth, y),
+        paint,
+      ); // Corrected line
     }
   }
 

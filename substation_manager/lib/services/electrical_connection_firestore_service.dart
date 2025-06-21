@@ -31,8 +31,8 @@ class ElectricalConnectionFirestoreService {
   // --- ElectricalConnection Methods ---
   // CORRECTED: Removed the extra 'id' parameter from getConnectionsStream signature
   Stream<List<ElectricalConnection>> getConnectionsStream(
-    String id, {
-    // FIXED: Removed 'String id' parameter
+  // FIXED: Removed 'String id' parameter
+  {
     String? substationId,
     String?
     bayId, // BayId might not be relevant for connections if they are top-level under substation

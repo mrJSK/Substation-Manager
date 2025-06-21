@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:substation_manager/models/master_equipment_template.dart';
 import 'package:substation_manager/services/core_firestore_service.dart';
 import 'package:substation_manager/utils/snackbar_utils.dart';
-import 'package:uuid/uuid.dart'; // For generating IDs
+import 'package:uuid/uuid.dart';
 
-// Import all individual equipment icon painters to get their names
 import 'package:substation_manager/equipment_icons/transformer_icon.dart';
 import 'package:substation_manager/equipment_icons/busbar_icon.dart';
 import 'package:substation_manager/equipment_icons/circuit_breaker_icon.dart';
@@ -16,10 +15,7 @@ import 'package:substation_manager/equipment_icons/pt_icon.dart';
 import 'package:substation_manager/equipment_icons/ground_icon.dart';
 
 // Define an enum for different views within the screen
-enum MasterEquipmentViewMode {
-  list, // Shows the list of existing templates
-  form, // Shows the form to add/edit a template
-}
+enum MasterEquipmentViewMode { list, form }
 
 class MasterEquipmentManagementScreen extends StatefulWidget {
   const MasterEquipmentManagementScreen({super.key});
@@ -34,30 +30,31 @@ class _MasterEquipmentManagementScreenState
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _equipmentTypeController =
       TextEditingController();
-  String _selectedSymbolKey = 'Transformer'; // NEW: State for selected symbol
+  String _selectedSymbolKey = 'Transformer';
+  // NEW: Controllers for default dimensions
+  final TextEditingController _defaultWidthController = TextEditingController(
+    text: '60.0',
+  );
+  final TextEditingController _defaultHeightController = TextEditingController(
+    text: '60.0',
+  );
 
-  // Custom fields for the main equipment type
   List<Map<String, dynamic>> _equipmentCustomFields = [];
 
-  // Lists to hold definitions of specific relay and energy meter instances
-  // Each map represents an instance: {'name': String, 'fields': List<Map<String, dynamic>>}
   List<Map<String, dynamic>> _definedRelays = [];
   List<Map<String, dynamic>> _definedEnergyMeters = [];
 
   List<MasterEquipmentTemplate> _templates = [];
-  bool _isLoading = true; // For initial data fetch
-  MasterEquipmentTemplate?
-  _templateToEdit; // Holds the template being edited (null for new)
+  bool _isLoading = true;
+  MasterEquipmentTemplate? _templateToEdit;
 
-  bool _isSaving = false; // Flag specifically for the save/update operation
+  bool _isSaving = false;
 
-  // State variable to control the current view mode
   MasterEquipmentViewMode _viewMode = MasterEquipmentViewMode.list;
 
   final CoreFirestoreService _coreFirestoreService = CoreFirestoreService();
-  final Uuid _uuid = const Uuid(); // For generating unique IDs
+  final Uuid _uuid = const Uuid();
 
-  // Data types for custom fields (applicable to all custom fields)
   final List<String> _dataTypes = const [
     'text',
     'number',
@@ -67,13 +64,11 @@ class _MasterEquipmentManagementScreenState
     'time',
   ];
 
-  // Categories for custom fields (e.g., for filtering/grouping in other parts of the app)
   final List<String> _fieldCategories = const [
     'Specification',
     'Daily Reading',
   ];
 
-  // NEW: List of available symbol keys/names from your icon files
   final List<String> _availableSymbolKeys = const [
     'Transformer',
     'Busbar',
@@ -82,41 +77,70 @@ class _MasterEquipmentManagementScreenState
     'Current Transformer',
     'Potential Transformer',
     'Ground',
-    // Add more here as you create new icon files
   ];
 
-  // Helper to map symbol key to an actual CustomPainter for preview
   EquipmentPainter _getSymbolPreviewPainter(String symbolKey, Color color) {
     switch (symbolKey) {
       case 'Transformer':
-        return TransformerIconPainter(color: color);
+        return TransformerIconPainter(
+          color: color,
+          symbolSize: const Size(30, 30),
+          equipmentSize: const Size(30, 30),
+        );
       case 'Busbar':
-        return BusbarIconPainter(color: color);
+        return BusbarIconPainter(
+          color: color,
+          equipmentSize: const Size(60, 10),
+          symbolSize: const Size(60, 10),
+        );
       case 'Circuit Breaker':
-        return CircuitBreakerIconPainter(color: color);
+        return CircuitBreakerIconPainter(
+          color: color,
+          symbolSize: const Size(30, 30),
+          equipmentSize: const Size(30, 30),
+        );
       case 'Disconnector':
-        return DisconnectorIconPainter(color: color);
+        return DisconnectorIconPainter(
+          color: color,
+          symbolSize: const Size(30, 30),
+          equipmentSize: const Size(30, 30),
+        );
       case 'Current Transformer':
-        return CurrentTransformerIconPainter(color: color);
+        return CurrentTransformerIconPainter(
+          color: color,
+          symbolSize: const Size(40, 30),
+          equipmentSize: const Size(40, 30),
+        );
       case 'Potential Transformer':
-        return PotentialTransformerIconPainter(color: color);
+        return PotentialTransformerIconPainter(
+          color: color,
+          symbolSize: const Size(40, 30),
+          equipmentSize: const Size(40, 30),
+        );
       case 'Ground':
-        return GroundIconPainter(color: color);
+        return GroundIconPainter(
+          color: color,
+          symbolSize: const Size(30, 30),
+          equipmentSize: const Size(30, 30),
+        );
       default:
-        return TransformerIconPainter(color: color); // Fallback
+        return TransformerIconPainter(
+          color: color,
+          symbolSize: const Size(30, 30),
+          equipmentSize: const Size(30, 30),
+        );
     }
   }
 
-  // Helper to get preview size for symbols in dropdown
   Size _getSymbolPreviewSize(String symbolKey) {
     switch (symbolKey) {
       case 'Busbar':
-        return const Size(60, 10); // Smaller preview for busbar
+        return const Size(60, 10);
       case 'Current Transformer':
       case 'Potential Transformer':
-        return const Size(40, 30); // Smaller for CT/PT
+        return const Size(40, 30);
       default:
-        return const Size(30, 30); // Default small preview size
+        return const Size(30, 30);
     }
   }
 
@@ -129,12 +153,14 @@ class _MasterEquipmentManagementScreenState
   @override
   void dispose() {
     _equipmentTypeController.dispose();
+    _defaultWidthController.dispose(); // NEW: Dispose controller
+    _defaultHeightController.dispose(); // NEW: Dispose controller
     super.dispose();
   }
 
   /// Loads master equipment templates from Firestore.
   Future<void> _loadTemplates() async {
-    if (!mounted) return; // Ensure the widget is still in the tree
+    if (!mounted) return;
 
     setState(() {
       _isLoading = true;
@@ -146,7 +172,7 @@ class _MasterEquipmentManagementScreenState
           if (mounted) {
             setState(() {
               _templates = templates;
-              _isLoading = false; // Set loading to false once data is received
+              _isLoading = false;
             });
           }
         },
@@ -161,7 +187,7 @@ class _MasterEquipmentManagementScreenState
           debugPrint('Error loading master equipment templates: $e');
           if (mounted) {
             setState(() {
-              _isLoading = false; // Set loading to false on error too
+              _isLoading = false;
             });
           }
         },
@@ -170,7 +196,7 @@ class _MasterEquipmentManagementScreenState
       if (mounted) {
         SnackBarUtils.showSnackBar(
           context,
-          'Unexpected error loading master templates: ${e.toString()}',
+          'Unexpected error loading templates: ${e.toString()}',
           isError: true,
         );
       }
@@ -186,11 +212,15 @@ class _MasterEquipmentManagementScreenState
   /// Navigates to the form for editing an existing template.
   void _showFormForEdit(MasterEquipmentTemplate template) {
     setState(() {
-      _viewMode = MasterEquipmentViewMode.form; // Switch to form view
+      _viewMode = MasterEquipmentViewMode.form;
       _templateToEdit = template;
       _equipmentTypeController.text = template.equipmentType;
-      _selectedSymbolKey = template.symbolKey; // NEW: Set selected symbol key
-      // Deep copy customFields from the template, including new 'hasUnits' property
+      _selectedSymbolKey = template.symbolKey;
+      _defaultWidthController.text = template.defaultWidth
+          .toString(); // NEW: Set width
+      _defaultHeightController.text = template.defaultHeight
+          .toString(); // NEW: Set height
+
       _equipmentCustomFields = List<Map<String, dynamic>>.from(
         template.equipmentCustomFields.map(
           (field) => Map<String, dynamic>.from(field)
@@ -198,9 +228,8 @@ class _MasterEquipmentManagementScreenState
               'hasUnits',
               () => (field['units'] as String?)?.isNotEmpty ?? false,
             ),
-        ), // Initialize based on existing units
+        ),
       );
-      // Deep copy definedRelays and definedEnergyMeters
       _definedRelays = List<Map<String, dynamic>>.from(
         template.definedRelays.map(
           (relayDef) => {
@@ -213,7 +242,7 @@ class _MasterEquipmentManagementScreenState
                     () => (f['units'] as String?)?.isNotEmpty ?? false,
                   ),
               ),
-            ), // Initialize based on existing units
+            ),
           },
         ),
       );
@@ -229,7 +258,7 @@ class _MasterEquipmentManagementScreenState
                     () => (f['units'] as String?)?.isNotEmpty ?? false,
                   ),
               ),
-            ), // Initialize based on existing units
+            ),
           },
         ),
       );
@@ -239,16 +268,16 @@ class _MasterEquipmentManagementScreenState
   /// Navigates to the form for adding a new template.
   void _showFormForNew() {
     setState(() {
-      _viewMode = MasterEquipmentViewMode.form; // Switch to form view
-      _clearForm(); // Clear the form for a new entry
+      _viewMode = MasterEquipmentViewMode.form;
+      _clearForm();
     });
   }
 
   /// Navigates back to the list view and clears the form.
   void _showListView() {
     setState(() {
-      _viewMode = MasterEquipmentViewMode.list; // Switch to list view
-      _clearForm(); // Clear any form data when returning to list
+      _viewMode = MasterEquipmentViewMode.list;
+      _clearForm();
     });
   }
 
@@ -257,10 +286,12 @@ class _MasterEquipmentManagementScreenState
     setState(() {
       _templateToEdit = null;
       _equipmentTypeController.clear();
-      _selectedSymbolKey = 'Transformer'; // NEW: Reset to default symbol
+      _selectedSymbolKey = 'Transformer';
+      _defaultWidthController.text = '60.0'; // NEW: Reset width
+      _defaultHeightController.text = '60.0'; // NEW: Reset height
       _equipmentCustomFields = [];
-      _definedRelays = []; // Clear defined relays
-      _definedEnergyMeters = []; // Clear defined energy meters
+      _definedRelays = [];
+      _definedEnergyMeters = [];
       _formKey.currentState?.reset();
     });
   }
@@ -272,10 +303,10 @@ class _MasterEquipmentManagementScreenState
         'name': '',
         'dataType': 'text',
         'isMandatory': false,
-        'units': '', // Default empty unit
-        'hasUnits': false, // New property for unit toggle
+        'units': '',
+        'hasUnits': false,
         'options': [],
-        'category': 'Specification', // Default category
+        'category': 'Specification',
       });
     });
   }
@@ -292,7 +323,7 @@ class _MasterEquipmentManagementScreenState
     setState(() {
       _definedRelays.add({
         'name': 'Relay ${_definedRelays.length + 1}',
-        'fields': <Map<String, dynamic>>[], // Each relay has its own fields
+        'fields': <Map<String, dynamic>>[],
       });
     });
   }
@@ -309,7 +340,7 @@ class _MasterEquipmentManagementScreenState
     setState(() {
       _definedEnergyMeters.add({
         'name': 'Meter ${_definedEnergyMeters.length + 1}',
-        'fields': <Map<String, dynamic>>[], // Each meter has its own fields
+        'fields': <Map<String, dynamic>>[],
       });
     });
   }
@@ -323,7 +354,7 @@ class _MasterEquipmentManagementScreenState
 
   /// Saves or updates a master equipment template.
   Future<void> _saveTemplate() async {
-    if (!mounted) return; // Ensure the widget is still in the tree
+    if (!mounted) return;
 
     if (!_formKey.currentState!.validate()) {
       SnackBarUtils.showSnackBar(
@@ -334,37 +365,36 @@ class _MasterEquipmentManagementScreenState
       return;
     }
 
-    // Dismiss the keyboard
     FocusScope.of(context).unfocus();
 
     setState(() {
-      _isSaving = true; // Use _isSaving flag for the save operation
+      _isSaving = true;
     });
 
     try {
-      // For new templates, generate a UUID. For existing, use the current ID.
       final String templateId = _templateToEdit?.id ?? _uuid.v4();
 
       final MasterEquipmentTemplate template = MasterEquipmentTemplate(
         id: templateId,
         equipmentType: _equipmentTypeController.text.trim(),
-        symbolKey: _selectedSymbolKey, // NEW: Save selected symbol key
+        symbolKey: _selectedSymbolKey,
+        defaultWidth:
+            double.tryParse(_defaultWidthController.text) ??
+            60.0, // NEW: Parse width
+        defaultHeight:
+            double.tryParse(_defaultHeightController.text) ??
+            60.0, // NEW: Parse height
         equipmentCustomFields: _equipmentCustomFields
             .where((field) => (field['name'] as String).isNotEmpty)
             .map(
-              (field) =>
-                  Map<String, dynamic>.from(
-                      field,
-                    ) // Ensure deep copy and clean up before saving
-                    ..remove('hasUnits'),
-            ) // Remove temporary UI field
+              (field) => Map<String, dynamic>.from(field)..remove('hasUnits'),
+            )
             .toList(),
         definedRelays: _definedRelays
             .where((relayDef) => (relayDef['name'] as String).isNotEmpty)
             .map(
               (relayDef) => {
                 'name': relayDef['name'],
-                // Ensure inner fields are also filtered for empty names and clean up 'hasUnits'
                 'fields':
                     (relayDef['fields'] as List<dynamic>?)
                         ?.where((f) => (f['name'] as String).isNotEmpty)
@@ -382,7 +412,6 @@ class _MasterEquipmentManagementScreenState
             .map(
               (meterDef) => {
                 'name': meterDef['name'],
-                // Ensure inner fields are also filtered for empty names and clean up 'hasUnits'
                 'fields':
                     (meterDef['fields'] as List<dynamic>?)
                         ?.where((f) => (f['name'] as String).isNotEmpty)
@@ -415,7 +444,7 @@ class _MasterEquipmentManagementScreenState
         }
       }
       if (mounted) {
-        _showListView(); // Go back to list view after saving
+        _showListView();
       }
     } catch (e) {
       if (mounted) {
@@ -429,7 +458,7 @@ class _MasterEquipmentManagementScreenState
     } finally {
       if (mounted) {
         setState(() {
-          _isSaving = false; // Reset _isSaving flag
+          _isSaving = false;
         });
       }
     }
@@ -437,7 +466,7 @@ class _MasterEquipmentManagementScreenState
 
   /// Deletes a master equipment template after confirmation.
   Future<void> _deleteTemplate(String id) async {
-    if (!mounted) return; // Ensure the widget is still in the tree
+    if (!mounted) return;
 
     final bool confirm =
         await showDialog<bool>(
@@ -462,7 +491,7 @@ class _MasterEquipmentManagementScreenState
             ],
           ),
         ) ??
-        false; // Default to false if dialog is dismissed
+        false;
 
     if (confirm == true) {
       try {
@@ -557,7 +586,8 @@ class _MasterEquipmentManagementScreenState
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         subtitle: Text(
-                          'Symbol: ${template.symbolKey}\n' // NEW: Display symbol key
+                          'Symbol: ${template.symbolKey}\n'
+                          'Size: ${template.defaultWidth.toInt()}x${template.defaultHeight.toInt()} px\n' // NEW: Display default size
                           '${template.equipmentCustomFields.length} equipment fields, '
                           '${template.definedRelays.length} defined relays, '
                           '${template.definedEnergyMeters.length} defined energy meters',
@@ -733,7 +763,7 @@ class _MasterEquipmentManagementScreenState
                     ),
                     const SizedBox(height: 20),
 
-                    // NEW: Symbol mapping dropdown
+                    // Symbol mapping dropdown
                     DropdownButtonFormField<String>(
                       value: _selectedSymbolKey,
                       decoration: InputDecoration(
@@ -751,9 +781,7 @@ class _MasterEquipmentManagementScreenState
                           child: Row(
                             children: [
                               CustomPaint(
-                                size: _getSymbolPreviewSize(
-                                  key,
-                                ), // Use appropriate size for preview
+                                size: _getSymbolPreviewSize(key),
                                 painter: _getSymbolPreviewPainter(
                                   key,
                                   colorScheme.onSurface,
@@ -774,6 +802,57 @@ class _MasterEquipmentManagementScreenState
                           ? 'Please select a symbol'
                           : null,
                     ),
+                    const SizedBox(height: 20),
+
+                    // NEW: Default dimensions fields (optional, conditionally shown)
+                    if (_selectedSymbolKey ==
+                        'Busbar') // Only show for busbar, or if needed for other dynamically sized
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10.0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _defaultWidthController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Default Width (px)',
+                                  hintText: 'e.g., 120',
+                                ),
+                                keyboardType: TextInputType.number,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Width is required';
+                                  }
+                                  if (double.tryParse(value) == null) {
+                                    return 'Must be a number';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _defaultHeightController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Default Height (px)',
+                                  hintText: 'e.g., 15',
+                                ),
+                                keyboardType: TextInputType.number,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Height is required';
+                                  }
+                                  if (double.tryParse(value) == null) {
+                                    return 'Must be a number';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     const SizedBox(height: 20),
 
                     // Section for Equipment Custom Fields
@@ -797,7 +876,7 @@ class _MasterEquipmentManagementScreenState
                       itemCount: _definedRelays.length,
                       itemBuilder: (context, index) {
                         return _buildDefinedRelayOrMeterCard(
-                          'Relay', // Default name prefix
+                          'Relay',
                           _definedRelays[index],
                           colorScheme,
                           onRemove: () => _removeDefinedRelay(index),
@@ -827,7 +906,7 @@ class _MasterEquipmentManagementScreenState
                       itemCount: _definedEnergyMeters.length,
                       itemBuilder: (context, index) {
                         return _buildDefinedRelayOrMeterCard(
-                          'Meter', // Default name prefix
+                          'Meter',
                           _definedEnergyMeters[index],
                           colorScheme,
                           onRemove: () => _removeDefinedEnergyMeter(index),
@@ -1040,7 +1119,6 @@ class _MasterEquipmentManagementScreenState
                       onChanged: (value) => field['category'] = value,
                       isExpanded: true,
                     ),
-                    const SizedBox(height: 10),
                     CheckboxListTile(
                       title: const Text('Mandatory'),
                       value: field['isMandatory'] as bool,
@@ -1081,12 +1159,11 @@ class _MasterEquipmentManagementScreenState
   /// Helper widget to build a card for a defined Relay or Energy Meter instance.
   /// It includes an editable name and a section for its custom fields.
   Widget _buildDefinedRelayOrMeterCard(
-    String defaultNamePrefix, // e.g., "Relay" or "Meter"
+    String defaultNamePrefix,
     Map<String, dynamic> instanceDefinition,
     ColorScheme colorScheme, {
     required VoidCallback onRemove,
   }) {
-    // Ensure 'fields' list exists in the instance definition map
     instanceDefinition.putIfAbsent('fields', () => <Map<String, dynamic>>[]);
     List<Map<String, dynamic>> instanceFields =
         instanceDefinition['fields'] as List<Map<String, dynamic>>;
@@ -1134,7 +1211,6 @@ class _MasterEquipmentManagementScreenState
               ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            // Inner ListView for custom fields of THIS specific instance
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),

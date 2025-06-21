@@ -1,7 +1,6 @@
 // lib/utils/grid_utils.dart
 
 import 'package:flutter/material.dart';
-import 'dart:math';
 
 const double gridSize = 20.0; // Define your grid size here (e.g., 20.0 pixels)
 

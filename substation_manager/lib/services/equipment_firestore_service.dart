@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:substation_manager/models/equipment.dart';
 import 'package:substation_manager/services/core_firestore_service.dart'; // Import CoreFirestoreService to get bays
 import 'dart:async'; // Required for StreamController
-import 'package:async/async.dart'; // Import for StreamGroup - ensure this is needed, or remove if not.
+// Import for StreamGroup - ensure this is needed, or remove if not.
 
 class EquipmentFirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;

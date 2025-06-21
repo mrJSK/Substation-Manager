@@ -4,7 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:substation_manager/equipment_icons/transformer_icon.dart'; // Import base EquipmentPainter
 
 class CircuitBreakerIconPainter extends EquipmentPainter {
-  CircuitBreakerIconPainter({required super.color, super.strokeWidth});
+  CircuitBreakerIconPainter({
+    required super.color,
+    super.strokeWidth,
+    required super.equipmentSize,
+    required Size symbolSize,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -13,25 +18,18 @@ class CircuitBreakerIconPainter extends EquipmentPainter {
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke;
 
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 5; // Circle radius, with padding
+    // Draw the square/rectangle filling the CustomPaint widget's size
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    canvas.drawRect(rect, paint);
 
-    canvas.drawCircle(center, radius, paint);
-
-    // Cross lines for breaker
-    canvas.drawLine(
-      Offset(center.dx - radius * 0.7, center.dy - radius * 0.7),
-      Offset(center.dx + radius * 0.7, center.dy + radius * 0.7),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(center.dx + radius * 0.7, center.dy - radius * 0.7),
-      Offset(center.dx - radius * 0.7, center.dy + radius * 0.7),
-      paint,
-    );
+    // Diagonal lines inside the square
+    canvas.drawLine(rect.topLeft, rect.bottomRight, paint);
+    canvas.drawLine(rect.topRight, rect.bottomLeft, paint);
   }
 
   @override
   bool shouldRepaint(covariant CircuitBreakerIconPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
+      oldDelegate.color != color ||
+      oldDelegate.strokeWidth != strokeWidth ||
+      oldDelegate.equipmentSize != equipmentSize;
 }

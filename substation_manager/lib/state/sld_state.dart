@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:substation_manager/models/master_equipment_template.dart';
 import 'package:substation_manager/models/equipment.dart';
-import 'package:substation_manager/models/electrical_connection.dart';
+import 'package:substation_manager/models/electrical_connection.dart' as model;
 import 'package:substation_manager/models/substation.dart';
 import 'package:substation_manager/services/equipment_firestore_service.dart';
 import 'package:substation_manager/services/electrical_connection_firestore_service.dart';
@@ -17,9 +17,9 @@ class SldState extends ChangeNotifier {
   final String debugId = const Uuid().v4().substring(0, 4);
 
   final Map<String, Equipment> _placedEquipment = {};
-  final List<ElectricalConnection> _connections = [];
+  final List<model.ElectricalConnection> _connections = [];
   Equipment? _selectedEquipment;
-  ElectricalConnection? _selectedConnection;
+  model.ElectricalConnection? _selectedConnection;
   Equipment? _connectionStartEquipment;
   bool _isLoadingTemplates = false;
   List<MasterEquipmentTemplate> _availableTemplates = [];
@@ -33,11 +33,20 @@ class SldState extends ChangeNotifier {
   Equipment? _selectedEquipmentInModal;
 
   final Map<String, Equipment> _initialEquipmentSnapshot = {};
-  final List<ElectricalConnection> _initialConnectionSnapshot = [];
+  final List<model.ElectricalConnection> _initialConnectionSnapshot = [];
 
   bool _hasPendingChanges = false;
-  bool _isDragging = false; // Add this flag
-  // Removed _isCanvasPanEnabled as it's now controlled by _isDragging
+  bool _isDragging = false;
+
+  double _gridSize = 20.0; // NEW: Grid size state variable
+  double get gridSize => _gridSize;
+
+  void setGridSize(double newSize) {
+    if (_gridSize != newSize) {
+      _gridSize = newSize;
+      notifyListeners();
+    }
+  }
 
   void clearAllSldElements() {
     _placedEquipment.clear();
@@ -53,9 +62,9 @@ class SldState extends ChangeNotifier {
   }
 
   Map<String, Equipment> get placedEquipment => _placedEquipment;
-  List<ElectricalConnection> get connections => _connections;
+  List<model.ElectricalConnection> get connections => _connections;
   Equipment? get selectedEquipment => _selectedEquipment;
-  ElectricalConnection? get selectedConnection => _selectedConnection;
+  model.ElectricalConnection? get selectedConnection => _selectedConnection;
   Equipment? get connectionStartEquipment => _connectionStartEquipment;
   bool get isLoadingTemplates => _isLoadingTemplates;
   List<MasterEquipmentTemplate> get availableTemplates => _availableTemplates;
@@ -69,13 +78,12 @@ class SldState extends ChangeNotifier {
     return _hasPendingChanges;
   }
 
-  bool get isDragging => _isDragging; // Getter for the new flag
+  bool get isDragging => _isDragging;
 
-  // Setter for the new flag
   void setIsDragging(bool dragging) {
     if (_isDragging != dragging) {
       _isDragging = dragging;
-      notifyListeners(); // Notify listeners when this changes
+      notifyListeners();
     }
   }
 
@@ -122,11 +130,13 @@ class SldState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addConnection(ElectricalConnection connection) {
+  void addConnection(model.ElectricalConnection connection) {
     // Prevent adding duplicate connections (by checking if from/to pair already exists,
     // regardless of order, or if the exact connection ID already exists)
     final isDuplicate = _connections.any((existingConn) {
-      return (existingConn.fromEquipmentId == connection.fromEquipmentId &&
+      // Check for exact ID duplicate OR (from A to B OR from B to A)
+      return existingConn.id == connection.id ||
+          (existingConn.fromEquipmentId == connection.fromEquipmentId &&
               existingConn.toEquipmentId == connection.toEquipmentId) ||
           (existingConn.fromEquipmentId == connection.toEquipmentId &&
               existingConn.toEquipmentId == connection.fromEquipmentId);
@@ -156,25 +166,25 @@ class SldState extends ChangeNotifier {
   void selectEquipment(Equipment? equipment) {
     _selectedEquipment = equipment;
     _selectedConnection = null;
-    // Keep _connectionStartEquipment if it's the same equipment being selected again,
-    // otherwise, clear it to prevent accidental connections.
+    // Clear connection start if a new equipment is selected or selection is cleared
     if (equipment?.id != _connectionStartEquipment?.id) {
       _connectionStartEquipment = null;
     }
     notifyListeners();
   }
 
-  void selectConnection(ElectricalConnection? connection) {
+  void selectConnection(model.ElectricalConnection? connection) {
     _selectedConnection = connection;
     _selectedEquipment = null;
-    _connectionStartEquipment = null;
+    _connectionStartEquipment =
+        null; // Clear equipment connection mode when a connection is selected
     notifyListeners();
   }
 
   void setConnectionStartEquipment(Equipment? equipment) {
     _connectionStartEquipment = equipment;
     _selectedEquipment =
-        null; // Deselect equipment when entering connection mode
+        null; // Deselect equipment when entering connection mode from another equipment
     _selectedConnection = null;
     notifyListeners();
   }
@@ -204,7 +214,7 @@ class SldState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // NEW METHOD: Get MasterEquipmentTemplate for a given Equipment
+  // Get MasterEquipmentTemplate for a given Equipment from loaded templates
   MasterEquipmentTemplate? getTemplateForEquipment(Equipment equipment) {
     return _availableTemplates.firstWhereOrNull(
       (template) => template.id == equipment.masterTemplateId,
@@ -222,7 +232,7 @@ class SldState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateAllConnections(List<ElectricalConnection> connections) {
+  void updateAllConnections(List<model.ElectricalConnection> connections) {
     _connections.clear();
     _initialConnectionSnapshot.clear();
     _connections.addAll(connections);
@@ -265,8 +275,8 @@ class SldState extends ChangeNotifier {
           .toList();
 
       // Connections: find added, updated, deleted
-      final List<ElectricalConnection> connectionsToAdd = [];
-      final List<ElectricalConnection> connectionsToUpdate = [];
+      final List<model.ElectricalConnection> connectionsToAdd = [];
+      final List<model.ElectricalConnection> connectionsToUpdate = [];
       final List<String> connectionsToDeleteIds = [];
 
       // Determine connections to add/update
@@ -274,8 +284,7 @@ class SldState extends ChangeNotifier {
         if (!existingConnectionIds.contains(currentConn.id)) {
           connectionsToAdd.add(currentConn);
         } else {
-          // You might need a more robust way to check if a connection is "updated"
-          // For now, if its ID exists, it's considered for update (merge)
+          // If the connection ID exists, it's considered for update (merge)
           connectionsToUpdate.add(currentConn);
         }
       }

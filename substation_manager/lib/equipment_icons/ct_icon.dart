@@ -1,10 +1,15 @@
 // lib/equipment_icons/ct_icon.dart
 
 import 'package:flutter/material.dart';
-import 'package:substation_manager/equipment_icons/transformer_icon.dart'; // Import base EquipmentPainter
+import 'package:substation_manager/equipment_icons/transformer_icon.dart';
 
 class CurrentTransformerIconPainter extends EquipmentPainter {
-  CurrentTransformerIconPainter({required super.color, super.strokeWidth});
+  CurrentTransformerIconPainter({
+    required super.color,
+    super.strokeWidth,
+    required super.equipmentSize,
+    required Size symbolSize,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -26,7 +31,7 @@ class CurrentTransformerIconPainter extends EquipmentPainter {
       ..lineTo(centerX + coilWidth / 2, centerY - coilHeight / 2);
     canvas.drawPath(path, paint);
 
-    // Primary lines
+    // Primary lines (extend to the top/bottom of the CustomPaint widget)
     canvas.drawLine(
       Offset(centerX, 0),
       Offset(centerX, centerY - coilHeight / 2),
@@ -43,8 +48,7 @@ class CurrentTransformerIconPainter extends EquipmentPainter {
       text: 'CT',
       style: TextStyle(
         color: color,
-        fontSize:
-            size.width * 0.25, // Adjust font size relative to component size
+        fontSize: size.width * 0.25,
         fontWeight: FontWeight.bold,
       ),
     );
@@ -53,7 +57,6 @@ class CurrentTransformerIconPainter extends EquipmentPainter {
       textDirection: TextDirection.ltr,
     );
     textPainter.layout();
-    // Position the text slightly to the right of the symbol
     textPainter.paint(
       canvas,
       Offset(centerX + coilWidth / 2 + 5, centerY - textPainter.height / 2),
@@ -62,5 +65,7 @@ class CurrentTransformerIconPainter extends EquipmentPainter {
 
   @override
   bool shouldRepaint(covariant CurrentTransformerIconPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
+      oldDelegate.color != color ||
+      oldDelegate.strokeWidth != strokeWidth ||
+      oldDelegate.equipmentSize != equipmentSize;
 }

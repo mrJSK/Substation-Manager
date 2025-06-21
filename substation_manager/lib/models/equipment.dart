@@ -13,6 +13,11 @@ class Equipment {
   String name;
   double positionX;
   double positionY;
+  double width;
+  double height;
+  String? additionalLabel;
+  final double minWidth;
+
   final Map<String, dynamic>
   customFieldValues; // Store dynamic custom field values
   final List<Map<String, dynamic>>
@@ -27,8 +32,7 @@ class Equipment {
   final String? ratedCurrent;
   final String? status;
   final String? phaseConfiguration;
-  final String
-  symbolKey; // NEW: Field to store the key for the visual symbol (e.g., 'Transformer', 'Busbar')
+  final String symbolKey;
 
   Equipment({
     String? id,
@@ -39,6 +43,11 @@ class Equipment {
     required this.name,
     required this.positionX,
     required this.positionY,
+    this.width = 60.0,
+    this.height = 60.0,
+    this.additionalLabel,
+    this.minWidth =
+        20.0, // Default minimum width for resizeable components like busbars
     this.customFieldValues = const {},
     this.relays = const [],
     this.energyMeters = const [],
@@ -50,7 +59,7 @@ class Equipment {
     this.ratedCurrent,
     this.status,
     this.phaseConfiguration,
-    this.symbolKey = 'Transformer', // NEW: Default symbolKey
+    this.symbolKey = 'Transformer',
   }) : id = id ?? const Uuid().v4();
 
   // Factory constructor from Firestore DocumentSnapshot
@@ -71,6 +80,10 @@ class Equipment {
       name: data['name'] as String? ?? 'Unnamed Equipment',
       positionX: (data['positionX'] as num?)?.toDouble() ?? 0.0,
       positionY: (data['positionY'] as num?)?.toDouble() ?? 0.0,
+      width: (data['width'] as num?)?.toDouble() ?? 60.0,
+      height: (data['height'] as num?)?.toDouble() ?? 60.0,
+      additionalLabel: data['additionalLabel'] as String?,
+      minWidth: (data['minWidth'] as num?)?.toDouble() ?? 20.0,
       customFieldValues: Map<String, dynamic>.from(
         data['customFieldValues'] ?? {},
       ),
@@ -92,9 +105,7 @@ class Equipment {
       ratedCurrent: data['ratedCurrent'] as String?,
       status: data['status'] as String?,
       phaseConfiguration: data['phaseConfiguration'] as String?,
-      symbolKey:
-          data['symbolKey'] as String? ??
-          'Transformer', // NEW: Deserialize symbolKey
+      symbolKey: data['symbolKey'] as String? ?? 'Transformer',
     );
   }
 
@@ -108,6 +119,10 @@ class Equipment {
       'name': name,
       'positionX': positionX,
       'positionY': positionY,
+      'width': width,
+      'height': height,
+      'additionalLabel': additionalLabel,
+      'minWidth': minWidth,
       'customFieldValues': customFieldValues,
       'relays': relays,
       'energyMeters': energyMeters,
@@ -119,7 +134,7 @@ class Equipment {
       'ratedCurrent': ratedCurrent,
       'status': status,
       'phaseConfiguration': phaseConfiguration,
-      'symbolKey': symbolKey, // NEW: Serialize symbolKey
+      'symbolKey': symbolKey,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
@@ -135,6 +150,10 @@ class Equipment {
       name: map['name'] as String,
       positionX: (map['positionX'] as num).toDouble(),
       positionY: (map['positionY'] as num).toDouble(),
+      width: (map['width'] as num?)?.toDouble() ?? 60.0,
+      height: (map['height'] as num?)?.toDouble() ?? 60.0,
+      additionalLabel: map['additionalLabel'] as String?,
+      minWidth: (map['minWidth'] as num?)?.toDouble() ?? 20.0,
       customFieldValues: Map<String, dynamic>.from(
         jsonDecode(map['customFieldValues'] as String),
       ),
@@ -152,9 +171,7 @@ class Equipment {
       ratedCurrent: map['ratedCurrent'] as String?,
       status: map['status'] as String?,
       phaseConfiguration: map['phaseConfiguration'] as String?,
-      symbolKey:
-          map['symbolKey'] as String? ??
-          'Transformer', // NEW: Deserialize symbolKey from map
+      symbolKey: map['symbolKey'] as String? ?? 'Transformer',
     );
   }
 
@@ -169,6 +186,10 @@ class Equipment {
       'name': name,
       'positionX': positionX,
       'positionY': positionY,
+      'width': width,
+      'height': height,
+      'additionalLabel': additionalLabel,
+      'minWidth': minWidth,
       'customFieldValues': jsonEncode(customFieldValues),
       'relays': jsonEncode(relays),
       'energyMeters': jsonEncode(energyMeters),
@@ -180,7 +201,7 @@ class Equipment {
       'ratedCurrent': ratedCurrent,
       'status': status,
       'phaseConfiguration': phaseConfiguration,
-      'symbolKey': symbolKey, // NEW: Serialize symbolKey to map
+      'symbolKey': symbolKey,
     };
   }
 
@@ -194,6 +215,10 @@ class Equipment {
     String? name,
     double? positionX,
     double? positionY,
+    double? width,
+    double? height,
+    String? additionalLabel,
+    double? minWidth,
     Map<String, dynamic>? customFieldValues,
     List<Map<String, dynamic>>? relays,
     List<Map<String, dynamic>>? energyMeters,
@@ -205,7 +230,7 @@ class Equipment {
     String? ratedCurrent,
     String? status,
     String? phaseConfiguration,
-    String? symbolKey, // NEW: Add symbolKey to copyWith
+    String? symbolKey,
   }) {
     return Equipment(
       id: id ?? this.id,
@@ -216,6 +241,10 @@ class Equipment {
       name: name ?? this.name,
       positionX: positionX ?? this.positionX,
       positionY: positionY ?? this.positionY,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      additionalLabel: additionalLabel ?? this.additionalLabel,
+      minWidth: minWidth ?? this.minWidth,
       customFieldValues: customFieldValues ?? this.customFieldValues,
       relays: relays ?? this.relays,
       energyMeters: energyMeters ?? this.energyMeters,
@@ -227,7 +256,7 @@ class Equipment {
       ratedCurrent: ratedCurrent ?? this.ratedCurrent,
       status: status ?? this.status,
       phaseConfiguration: phaseConfiguration ?? this.phaseConfiguration,
-      symbolKey: symbolKey ?? this.symbolKey, // NEW: Copy symbolKey
+      symbolKey: symbolKey ?? this.symbolKey,
     );
   }
 }

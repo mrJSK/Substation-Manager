@@ -1,11 +1,16 @@
 // lib/equipment_icons/pt_icon.dart
 
 import 'package:flutter/material.dart';
-import 'package:substation_manager/equipment_icons/transformer_icon.dart'; // Import base EquipmentPainter
+import 'package:substation_manager/equipment_icons/transformer_icon.dart';
 import 'dart:math';
 
 class PotentialTransformerIconPainter extends EquipmentPainter {
-  PotentialTransformerIconPainter({required super.color, super.strokeWidth});
+  PotentialTransformerIconPainter({
+    required super.color,
+    super.strokeWidth,
+    required super.equipmentSize,
+    required Size symbolSize,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -18,8 +23,7 @@ class PotentialTransformerIconPainter extends EquipmentPainter {
     final centerY = size.height / 2;
     final coilRadius = min(size.width, size.height) * 0.2;
 
-    // Simple coil shape (spiral or overlapping circles)
-    // For simplicity, let's draw two overlapping circles for the coil
+    // Simple coil shape (two overlapping circles)
     canvas.drawCircle(
       Offset(centerX, centerY - coilRadius / 2),
       coilRadius,
@@ -31,7 +35,7 @@ class PotentialTransformerIconPainter extends EquipmentPainter {
       paint,
     );
 
-    // Primary lines
+    // Primary lines (extend to the top/bottom of the CustomPaint widget)
     canvas.drawLine(
       Offset(centerX, 0),
       Offset(centerX, centerY - coilRadius),
@@ -48,7 +52,7 @@ class PotentialTransformerIconPainter extends EquipmentPainter {
       text: 'PT',
       style: TextStyle(
         color: color,
-        fontSize: size.width * 0.25, // Adjust font size
+        fontSize: size.width * 0.25,
         fontWeight: FontWeight.bold,
       ),
     );
@@ -57,7 +61,6 @@ class PotentialTransformerIconPainter extends EquipmentPainter {
       textDirection: TextDirection.ltr,
     );
     textPainter.layout();
-    // Position the text slightly to the right of the symbol
     textPainter.paint(
       canvas,
       Offset(centerX + coilRadius + 5, centerY - textPainter.height / 2),
@@ -66,5 +69,7 @@ class PotentialTransformerIconPainter extends EquipmentPainter {
 
   @override
   bool shouldRepaint(covariant PotentialTransformerIconPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
+      oldDelegate.color != color ||
+      oldDelegate.strokeWidth != strokeWidth ||
+      oldDelegate.equipmentSize != equipmentSize;
 }

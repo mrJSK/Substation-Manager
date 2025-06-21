@@ -142,7 +142,9 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
         );
 
     _connectionsSubscription = _connectionFirestoreService
-        .getConnectionsStream(widget.substation.id)
+        .getConnectionsStream(
+          substationId: widget.substation.id,
+        ) // Pass substationId
         .listen(
           (connections) {
             if (mounted) {
@@ -223,7 +225,7 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
     }
   }
 
-  Future<void> _deleteSelectedItem(SldState sldState) async {
+  void _deleteSelectedItem(SldState sldState) async {
     if (sldState.selectedEquipment != null) {
       final selectedEq = sldState.selectedEquipment!;
       final bool confirm =
@@ -644,6 +646,8 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
                               canvasWidth: _canvasWidth,
                               canvasHeight: _canvasHeight,
                               gridColor: colorScheme.onSurface,
+                              gridSize:
+                                  20.0, // Provide a suitable grid size value
                             ),
                             size: Size.infinite,
                           ),
@@ -659,6 +663,8 @@ class _SldBuilderScreenState extends State<SldBuilderScreen> {
                               },
                               selectedConnection: sldState.selectedConnection,
                               colorScheme: colorScheme,
+                              gridSize:
+                                  20.0, // Provide the required gridSize argument
                             ),
                             size: Size.infinite, // Fill the stack
                           ),

@@ -1,14 +1,13 @@
 // substation_manager/lib/screens/sld_selection_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:substation_manager/models/area.dart';
 import 'package:substation_manager/models/substation.dart';
 import 'package:substation_manager/models/bay.dart'; // Keep import for model usage if needed elsewhere
 import 'package:substation_manager/services/core_firestore_service.dart';
 import 'package:substation_manager/utils/snackbar_utils.dart';
 import 'package:substation_manager/screens/substation_sld_builder_screen.dart';
-import 'package:substation_manager/state/sld_state.dart'; // <-- Add this import (adjust path if needed)
+// <-- Add this import (adjust path if needed)
 
 class SldSelectionScreen extends StatefulWidget {
   const SldSelectionScreen({super.key});
